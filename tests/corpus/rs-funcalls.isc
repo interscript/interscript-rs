@@ -1,0 +1,20 @@
+# Stage-level funcalls: title_case/downcase whole-string ops,
+# separate (default separator), compose/decompose (NFC/NFD).
+# (`upcase` parses as a directive but crashes the Ruby interpreter —
+# Stdlib::Functions has no upcase; not exercised here.)
+
+system "T:rs-funcalls:1" {
+  stage main {
+    parallel {
+      sub "§" " "
+    }
+    title_case
+    downcase
+    separate
+    compose
+    decompose
+  }
+  tests {
+    "§heating" -> "  h e a t i n g"
+  }
+}

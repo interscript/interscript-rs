@@ -1,0 +1,15 @@
+# Aliased dependency: run map.<dep>.stage.<stage> executes the
+# dependency's stage (a non-main stage here) on the current string.
+# (run directives live in the stage body; sequence/parallel blocks
+# hold only sub rules.)
+
+system "T:rs-stage-run:1" {
+  dependency "rs-stage-run-dep" as dep
+  stage main {
+    sub "x" "X"
+    run map.dep.stage.second
+  }
+  tests {
+    "xaya" -> "Xbyb"
+  }
+}

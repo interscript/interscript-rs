@@ -1,0 +1,18 @@
+# Nested any() composition: a set of a range + literal entry, plus an
+# imported range charset (tlib-jamo's hangul).
+
+system "T:rs-nested-any:1" {
+  dependency "tlib-jamo"
+  aliases {
+    jamo_set = any([any("ᄀ".."ᄂ"), "ᆨ"])
+  }
+  stage main {
+    sequence {
+      sub { from jamo_set to "J" }
+      sub { from hangul to "H" }
+    }
+  }
+  tests {
+    "가ᄀᆨ" -> "HJJ"
+  }
+}

@@ -1,0 +1,20 @@
+# interscript-rs semantics corpus (original minimal maps authored for
+# this crate; ISC format, parseable by the embedded grammar/isc.parg).
+# tests/semantics.rs runs every map here through the runtime and
+# requires 100% embedded-test pass. Expectations are hand-reasoned and
+# cross-checked against interscript-ruby (see the report).
+
+system "T:rs-boundary:1" {
+  stage main {
+    sequence {
+      # after boundary: lookahead — fires only at word-ending position.
+      sub { from "у" to "ŭ" after boundary }
+      # before boundary: lookbehind — fires only after a word boundary.
+      sub { from "k" to "q" before boundary }
+    }
+  }
+  tests {
+    "у k" -> "ŭ q"
+    "kу" -> "qŭ"
+  }
+}

@@ -1,0 +1,18 @@
+# Parallel tree path: duplicate `from` keys are LAST-WINS (Ruby's
+# parallel_replace_compile_tree builds a hash), and the longest match
+# wins at each position. (The megaregexp fallback instead takes the
+# first rule in deterministic_sort_by_max_length order.)
+# Expected output verified against interscript-ruby.
+
+system "T:rs-parallel-tree:1" {
+  stage main {
+    parallel {
+      sub "i" "a"
+      sub "i" "b"
+      sub "ab" "AB"
+    }
+  }
+  tests {
+    "i ab i" -> "b AB b"
+  }
+}

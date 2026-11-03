@@ -1,0 +1,27 @@
+[package]
+name = "interscript-rs"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Rust runtime for Interscript ISC maps, executing the parsanol .parg grammar"
+
+[dependencies]
+# The ISC grammar compiler + PEG engine (grammar/isc.parg compiles through
+# this). Local checkout path while parsanol 0.19.x is not on crates.io —
+# the same pin the interscript-ruby tools/isc-parg-check harness uses.
+parsanol = { path = "/Users/mulgogi/src/parsanol/parsanol-rs/parsanol" }
+# Ruby \b/\B word-char table (Unicode Word = Alphabetic|Mark|Nd|Pc —
+# Onigmo parity for boundary primitives; std lacks general categories).
+unicode-general-category = "1.1.0"
+# compose/decompose funcalls = NFC/NFD (Ruby String#unicode_normalize
+# parity). Not in parsanol-rs's dependency set; unavoidable for the 79
+# corpus maps that emit compose directives.
+unicode-normalization = "0.1"
+
+[lib]
+name = "interscript_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "iscrs"
+path = "src/bin/iscrs.rs"

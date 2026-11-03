@@ -1,0 +1,22 @@
+# any() classes: string sets, codepoint ranges, alias/nested-set
+# composition, and not_after with an any() class.
+# Expected output verified against interscript-ruby.
+
+system "T:rs-any:1" {
+  aliases {
+    vowel = any("aeiou")
+    cons_range = any("b".."d")
+    mixed = any([vowel, "x", cons_range])
+  }
+  stage main {
+    sequence {
+      sub { from "k" to "K" after any("aeiou") }
+      sub { from "l" to "L" not_after vowel }
+      sub { from any("b".."d") to "*" }
+      sub { from mixed to "m" }
+    }
+  }
+  tests {
+    "kakibldcx" -> "KmKm*L**m"
+  }
+}

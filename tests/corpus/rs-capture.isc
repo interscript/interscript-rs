@@ -1,0 +1,13 @@
+# capture(...) groups and ref(N) backreferences.
+
+system "T:rs-capture:1" {
+  stage main {
+    sequence {
+      sub { from capture("c") + "k" to ref(1) + "q" }
+      sub { from "z" to "s" }
+    }
+  }
+  tests {
+    "ckzk" -> "cqsk"
+  }
+}

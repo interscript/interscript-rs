@@ -1,0 +1,15 @@
+# Empty constraints: `before ""` is (?<=) — a no-op; `not_before ""`
+# and `not_after ""` are (?<!)/(?!) — never true, disabling the rule.
+
+system "T:rs-empty-constraints:1" {
+  stage main {
+    sequence {
+      sub { from "a" to "X" before "" }
+      sub { from "a" to "Y" not_before "" }
+      sub { from "a" to "Z" not_after "" }
+    }
+  }
+  tests {
+    "aa" -> "XX"
+  }
+}

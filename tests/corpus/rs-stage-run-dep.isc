@@ -1,0 +1,17 @@
+# Dependency target of rs-stage-run; also runs standalone.
+
+system "T:rs-stage-run-dep:1" {
+  stage main {
+    parallel {
+      sub "y" "Y"
+    }
+  }
+  stage second {
+    sequence {
+      sub "a" "b"
+    }
+  }
+  tests {
+    "y" -> "Y"
+  }
+}

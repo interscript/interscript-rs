@@ -1,0 +1,7 @@
+# Charset library used as an unaliased import of T:rs-nested-any.
+
+system "tlib-jamo" {
+  aliases {
+    hangul = any("가".."꿯")
+  }
+}

@@ -1,0 +1,19 @@
+# Parallel groups: longest-max_length-first ordering, a constraint
+# rule inside the same simultaneous pass.
+
+system "T:rs-parallel:1" {
+  stage main {
+    parallel {
+      sub "ab" "1"
+      sub "abc" "2"
+      sub "a" "0"
+      sub { from "d" to "D" before boundary }
+    }
+  }
+  tests {
+    # "abc" (max_length 3) wins at pos 0; the 'd' after 'c' has no
+    # word boundary to its left and is copied; the isolated 'd' after
+    # the space fires the before-boundary rule.
+    "abcd d" -> "2d D"
+  }
+}

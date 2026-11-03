@@ -1,0 +1,134 @@
+//! The document model — mirrors `Interscript::Node::Document` as
+//! produced by `Interscript::Isc::NodeAdapter`, plus the pieces the
+//! interpreter needs (resolved dependency documents, embedded tests).
+
+use crate::item::Item;
+use crate::stdlib::Funcall;
+use std::collections::BTreeMap;
+use std::rc::Rc;
+
+#[derive(Debug, Clone)]
+pub struct Sub {
+    pub from: Item,
+    pub to: SubTo,
+    pub before: Option<Item>,
+    pub not_before: Option<Item>,
+    pub after: Option<Item>,
+    pub not_after: Option<Item>,
+    /// Number of capture groups in regex order
+    /// (before, not_before, from, not_after, after).
+    pub group_count: usize,
+}
+
+#[derive(Debug, Clone)]
+pub enum SubTo {
+    /// `to upcase` — upcase the whole match.
+    Upcase,
+    /// `to downcase` — downcase the whole match.
+    Downcase,
+    /// A replacement item.
+    Item(Item),
+}
+
+impl Sub {
+    /// `Interscript::Node::Rule::Sub#max_length`.
+    pub fn max_length(&self) -> usize {
+        let mut len = self.from.max_length();
+        for c in [&self.before, &self.not_before, &self.after, &self.not_after] {
+            if let Some(item) = c {
+                len += item.max_length();
+            }
+        }
+        len
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StageItem {
+    /// parallel { ... } — single simultaneous pass.
+    Parallel(Vec<Sub>),
+    /// sequence { ... } rules and bare rules — sequential gsub passes
+    /// (the Ruby adapter flattens sequence blocks into the stage).
+    Sequential(Vec<Sub>),
+    /// run stage.x / run map.<dep>.stage.x
+    Run { dep: Option<String>, stage: String },
+    /// A stdlib function application.
+    Funcall(Funcall),
+}
+
+#[derive(Debug, Clone)]
+pub struct Stage {
+    pub name: String,
+    pub items: Vec<StageItem>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AliasDef {
+    pub name: String,
+    pub value: Item,
+}
+
+#[derive(Debug, Clone)]
+pub struct Dependency {
+    /// The located map name (`dependency "x"`).
+    pub target: String,
+    /// The `as` alias name; None = library import.
+    pub alias: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Tests {
+    pub data: Vec<(String, String)>,
+}
+
+/// A parsed, dependency-resolved map document.
+pub struct Document {
+    /// The map id (file stem; how `Interscript.transliterate` addresses it).
+    pub name: String,
+    pub system_code: String,
+    pub aliases: BTreeMap<String, Item>,
+    pub stages: BTreeMap<String, Stage>,
+    /// Aliased dependencies (stage-run targets), keyed by alias.
+    pub dep_aliases: BTreeMap<String, Rc<Document>>,
+    /// Library imports (unaliased dependencies), loaded documents.
+    pub imports: Vec<Rc<Document>>,
+    pub tests: Tests,
+    /// Raw metadata key/value text pairs (inert for transliteration).
+    pub metadata: Vec<(String, String)>,
+}
+
+impl Document {
+    /// `Interscript::Node::Document#imported_aliases`: each import
+    /// dependency's own aliases merged UNDER the doc's own aliases.
+    pub fn imported_aliases(&self) -> BTreeMap<String, Item> {
+        let mut merged: BTreeMap<String, Item> = BTreeMap::new();
+        for dep in &self.imports {
+            for (k, v) in &dep.aliases {
+                merged.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+        }
+        for (k, v) in &self.aliases {
+            merged.insert(k.clone(), v.clone());
+        }
+        merged
+    }
+
+    /// `imported_stages`: import deps' stages merged under own stages.
+    pub fn imported_stages(&self) -> BTreeMap<String, Stage> {
+        let mut merged: BTreeMap<String, Stage> = BTreeMap::new();
+        for dep in &self.imports {
+            for (k, v) in &dep.stages {
+                merged.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+        }
+        for (k, v) in &self.stages {
+            merged.insert(k.clone(), v.clone());
+        }
+        merged
+    }
+
+    /// Look up an alias through the import chain (word context).
+    pub fn lookup_alias(&self, name: &str) -> Option<Item> {
+        self.imported_aliases().get(name).cloned()
+    }
+}

@@ -1,0 +1,21 @@
+# Library import (unaliased dependency): tlib-chars's aliases merge
+# into the importing document's scope (imported_aliases).
+#
+# NB: an import-charset alias as a parallel `from` is tree-path
+# eligible in Ruby; a stdlib re-only alias (digit) must stay in a
+# sequence rule (Ruby raises "Can't use digit in a par context").
+
+system "T:rs-libdep:1" {
+  dependency "tlib-chars"
+  stage main {
+    parallel {
+      sub { from upper to "U" }
+    }
+    sequence {
+      sub { from digit to "#" }
+    }
+  }
+  tests {
+    "aA 7" -> "aU #"
+  }
+}

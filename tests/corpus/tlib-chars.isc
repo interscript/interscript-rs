@@ -1,0 +1,8 @@
+# Charset library used as an unaliased import of T:rs-libdep.
+
+system "tlib-chars" {
+  aliases {
+    upper = any("AÉΣ")
+    digit = any("0123456789")
+  }
+}
