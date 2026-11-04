@@ -32,12 +32,7 @@ const MAPS: &[&str] = &[
     "din-heb-Hebr-Latn-31636-2018",
     // not_before / not_after constraint users
     "alalc-asm-Deva-Latn-2012",
-    // alalc-ben-Beng-Latn-2017 is excluded for now: its embedded test
-    // "ত্য" -> "tya" needs the dependency stage run through
-    // un-ben-Beng-Latn-2016, and this runtime currently renders the
-    // piecewise fallback (tj̱a) instead of the dependency-stage result.
-    // Synthetic dependency-stage tests (rs-stage-run-dep) pass; the
-    // real-corpus resolution gap is slice-2 work.
+    "alalc-ben-Beng-Latn-2017",
     "bgnpcgn-rus-Cyrl-Latn-1947",
     // Deva aliased-dependency chains (run map.devalatn.stage.main)
     "din-san-Deva-Latn-33904-2018",

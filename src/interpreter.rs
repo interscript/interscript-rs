@@ -139,6 +139,11 @@ impl Runtime {
 // Stage execution
 // ----------------------------------------------------------------------
 
+/// Public alias for diagnostics and tests.
+pub fn execute_stage_pub(doc: &Document, stage_name: &str, input: &str) -> Result<String> {
+    execute_stage(doc, stage_name, input)
+}
+
 fn execute_stage(doc: &Document, stage_name: &str, input: &str) -> Result<String> {
     let stage = doc
         .imported_stages()
