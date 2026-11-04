@@ -10,7 +10,7 @@ fn main() {
     println!("deps declared: {:?}", doc.dep_aliases.keys().collect::<Vec<_>>());
     for (name, stage) in &doc.stages {
         for item in &stage.items {
-            if let StageItem::Run { dep, stage } = item {
+            if let StageItem::Run { dep, stage, .. } = item {
                 println!("stage {name}: run dep={dep:?} stage={stage:?}");
             }
         }

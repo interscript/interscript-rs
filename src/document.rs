@@ -18,6 +18,11 @@ pub struct Sub {
     /// Number of capture groups in regex order
     /// (before, not_before, from, not_after, after).
     pub group_count: usize,
+    /// Ruby `reverse_run:`: `Some(true)` skips the rule in the forward
+    /// direction and runs it in the reversed document (and vice versa).
+    /// The ISC grammar cannot express it; only `Document::reverse`
+    /// produces it.
+    pub reverse_run: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +56,11 @@ pub enum StageItem {
     /// (the Ruby adapter flattens sequence blocks into the stage).
     Sequential(Vec<Sub>),
     /// run stage.x / run map.<dep>.stage.x
-    Run { dep: Option<String>, stage: String },
+    Run {
+        dep: Option<String>,
+        stage: String,
+        reverse_run: Option<bool>,
+    },
     /// A stdlib function application.
     Funcall(Funcall),
 }
@@ -60,6 +69,8 @@ pub enum StageItem {
 pub struct Stage {
     pub name: String,
     pub items: Vec<StageItem>,
+    /// Ruby `reverse_run:` at stage level (Group#reverse toggles it).
+    pub reverse_run: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

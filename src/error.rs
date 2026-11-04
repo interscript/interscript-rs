@@ -20,6 +20,9 @@ pub enum Error {
     /// A semantic error the Ruby runtime also rejects
     /// (MapLogicError / SystemConversionError parity).
     MapLogic(String),
+    /// An IMF v1 artifact / registry / inference error
+    /// (interscript-models SPEC.md violations included).
+    Model(String),
     /// Filesystem / IO failure.
     Io(String),
 }
@@ -38,6 +41,7 @@ impl fmt::Display for Error {
             }
             Error::Unsupported(what) => write!(f, "unsupported: {what}"),
             Error::MapLogic(what) => write!(f, "map logic error: {what}"),
+            Error::Model(what) => write!(f, "model error: {what}"),
             Error::Io(what) => write!(f, "io error: {what}"),
         }
     }

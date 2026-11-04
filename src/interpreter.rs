@@ -149,18 +149,35 @@ fn execute_stage(doc: &Document, stage_name: &str, input: &str) -> Result<String
         .imported_stages()
         .remove(stage_name)
         .ok_or_else(|| Error::MapLogic(format!("stage {stage_name:?} not found in {}", doc.name)))?;
+    // Ruby execute_rule: `return if r.reverse_run == true` — a rule or
+    // stage carrying reverse_run == true is skipped entirely.
+    if stage.reverse_run == Some(true) {
+        return Ok(input.to_string());
+    }
     let mut s = input.to_string();
     for item in &stage.items {
+        // Ruby execute_rule top: reverse_run == true skips the rule.
+        let skipped = match item {
+            StageItem::Funcall(f) => f.reverse_run == Some(true),
+            StageItem::Run { reverse_run, .. } => *reverse_run == Some(true),
+            _ => false,
+        };
+        if skipped {
+            continue;
+        }
         s = match item {
             StageItem::Parallel(rules) => apply_parallel(doc, rules, &s)?,
             StageItem::Sequential(rules) => {
                 let mut out = s;
                 for rule in rules {
+                    if rule.reverse_run == Some(true) {
+                        continue;
+                    }
                     out = apply_sub(doc, rule, &out)?;
                 }
                 out
             }
-            StageItem::Run { dep, stage } => match dep {
+            StageItem::Run { dep, stage, .. } => match dep {
                 Some(alias) => {
                     let dep_doc = doc.dep_aliases.get(alias).ok_or_else(|| {
                         Error::MapLogic(format!("dep alias {alias:?} not found in {}", doc.name))
@@ -185,14 +202,20 @@ fn execute_stage(doc: &Document, stage_name: &str, input: &str) -> Result<String
 ///   `deterministic_sort_by_max_length` order (-max_length*100000+idx),
 ///   first match wins.
 fn apply_parallel(doc: &Document, rules: &[Sub], s: &str) -> Result<String> {
-    if let Some(tree) = build_tree(rules, doc)? {
+    // Ruby: `next if i.reverse_run == true` in both the tree and the
+    // megaregexp branch — skipped rules join neither array.
+    let live: Vec<&Sub> = rules
+        .iter()
+        .filter(|r| r.reverse_run != Some(true))
+        .collect();
+    if let Some(tree) = build_tree(&live, doc)? {
         return tree_replace(&tree, s);
     }
 
     let chars: Vec<char> = s.chars().collect();
     // deterministic_sort_by_max_length: -max_length * 100000 + idx.
-    let mut order: Vec<usize> = (0..rules.len()).collect();
-    order.sort_by_key(|&i| (std::cmp::Reverse(rules[i].max_length()), i));
+    let mut order: Vec<usize> = (0..live.len()).collect();
+    order.sort_by_key(|&i| (std::cmp::Reverse(live[i].max_length()), i));
 
     let mut out = String::with_capacity(s.len());
     let mut copied = 0usize; // chars[..copied] are already emitted
@@ -200,7 +223,7 @@ fn apply_parallel(doc: &Document, rules: &[Sub], s: &str) -> Result<String> {
     while pos < chars.len() {
         let mut matched: Option<(usize, String)> = None;
         for &i in &order {
-            let rule = &rules[i];
+            let rule = live[i];
             let m = Matcher::new(&chars, doc);
             if let Some((end, replacement)) = m.match_rule(rule, pos)? {
                 matched = Some((end, replacement));
@@ -236,7 +259,7 @@ struct TrieNode {
 /// from builds via build_item(:par) without raising; every to builds
 /// via build_item(:parstr)). Duplicate from-strings: later rules
 /// overwrite earlier terminals (hash assignment semantics).
-fn build_tree(rules: &[Sub], doc: &Document) -> Result<Option<TrieNode>> {
+fn build_tree(rules: &[&Sub], doc: &Document) -> Result<Option<TrieNode>> {
     let m = Matcher::new(&[], doc);
     let mut map: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
     for rule in rules {

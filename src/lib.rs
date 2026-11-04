@@ -12,9 +12,11 @@ pub mod builder;
 pub mod document;
 pub mod error;
 pub mod grammar;
+pub mod imf;
 pub mod interpreter;
 pub mod item;
 pub mod locate;
+pub mod reverse;
 pub mod stdlib;
 pub mod tree;
 
