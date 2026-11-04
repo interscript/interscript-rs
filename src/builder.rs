@@ -160,6 +160,7 @@ impl<'a> Ctx<'a> {
                     kwargs: separator
                         .map(|s| vec![("separator".to_string(), s)])
                         .unwrap_or_default(),
+                    reverse_run: None,
                 }));
             } else if keys.contains(&"compose") {
                 let op = leaf_text(pget(hash, "compose").unwrap());
@@ -168,7 +169,7 @@ impl<'a> Ctx<'a> {
                 } else {
                     FuncallName::Compose
                 };
-                items.push(StageItem::Funcall(Funcall { name, kwargs: vec![] }));
+                items.push(StageItem::Funcall(Funcall { name, kwargs: vec![], reverse_run: None }));
             } else if keys.contains(&"case") {
                 let op = leaf_text(pget(hash, "case").unwrap());
                 let name = match op.as_str() {
@@ -178,33 +179,34 @@ impl<'a> Ctx<'a> {
                     other => return Err(Error::MapLogic(format!("unknown case op {other:?}"))),
                 };
                 let kwargs = pget(hash, "case_kwargs").map(extract_kwargs).unwrap_or_default();
-                items.push(StageItem::Funcall(Funcall { name, kwargs }));
+                items.push(StageItem::Funcall(Funcall { name, kwargs, reverse_run: None }));
             } else if keys.contains(&"funcall_name") {
                 let fname = leaf_text(pget(hash, "funcall_name").unwrap());
                 let kwargs = pget(hash, "funcall_kwargs").map(extract_kwargs).unwrap_or_default();
                 let fname_enum = FuncallName::from_name(&fname)
                     .ok_or_else(|| crate::stdlib::unsupported_funcall(&fname))?;
-                items.push(StageItem::Funcall(Funcall { name: fname_enum, kwargs }));
+                items.push(StageItem::Funcall(Funcall { name: fname_enum, kwargs, reverse_run: None }));
             } else if keys.contains(&"dep") {
                 let dep = ident(pget(hash, "dep").unwrap());
                 let stage = ident(pget(hash, "stage").unwrap());
                 items.push(StageItem::Run {
                     dep: Some(dep),
                     stage,
+                    reverse_run: None,
                 });
             } else if keys.contains(&"run_stage_only") {
                 let stage = pget(hash, "run_stage_only")
                     .and_then(|v| v.get("stage"))
                     .map(ident)
                     .unwrap_or_default();
-                items.push(StageItem::Run { dep: None, stage });
+                items.push(StageItem::Run { dep: None, stage, reverse_run: None });
             } else if keys.contains(&"bare_rule") {
                 let rule = pget(hash, "bare_rule").unwrap();
                 items.push(StageItem::Sequential(vec![self.extract_rule(rule)?]));
             }
             // comment / noop entries: skipped
         }
-        Ok(Stage { name: name.to_string(), items })
+        Ok(Stage { name: name.to_string(), items, reverse_run: None })
     }
 
     fn extract_rule_list(&self, node: &TNode) -> Result<Vec<Sub>> {
@@ -268,6 +270,7 @@ impl<'a> Ctx<'a> {
             after,
             not_after,
             group_count: 0,
+            reverse_run: None,
         };
         // Alias expansion (Ruby's build_item resolves aliases inline,
         // so capture-group numbers follow EXPANSION order): expand

@@ -54,7 +54,13 @@ crates.io release exists), `unicode-normalization` (compose/decompose
 = NFC/NFD, 79 corpus maps), `unicode-general-category` (Onigmo's
 `\b` word-char table: Word = Alphabetic|Mark|Nd|Pc — `std` exposes no
 general categories). Each is justified by a runtime-semantics
-requirement, not convenience.
+requirement, not convenience. Slice 2 adds the IMF v1 layer:
+`sha2` (SPEC.md C2/C3 digests), `zip` + `serde`/`serde_yaml` +
+`serde_json` (artifact zips, metadata/models.yaml, the frozen JSON
+vectors), `ureq` (SPEC §2 download channel; rustls), and `ort`
+(ONNX Runtime 2.0.0-rc.15, prebuilt ms@1.31.0 binaries; macOS needs
+the `.cargo/config.toml` -U link workaround for CoreML EP symbols —
+see that file).
 
 ## Grammar provenance
 
@@ -69,11 +75,14 @@ suite runs under `iscrs grammar-test` and in `cargo test`.
 
 ```
 iscrs transliterate <map_id> <string> [--stage NAME]   # Interscript.transliterate parity
+iscrs reverse <map_id> <string> [--stage NAME]         # run the reversed document (Document#reverse)
 iscrs test <map_id>...                                 # run embedded tests
 iscrs test-all [--root DIR] [--limit N] [--json]       # corpus sweep
 iscrs parse <file-or-dir>...                           # parse-only
 iscrs parse-all [--root DIR] [--json]                  # parse sweep
 iscrs grammar-test                                     # the .parg embedded suite
+iscrs infer <artifact_zip_or_model_id> <string>        # IMF v1 greedy decode (ort)
+iscrs conformance <fixture_file_or_dir> [<artifact_dir>]  # frozen vectors, byte-exact
 ```
 
 Load path: `--maps DIR` (repeatable), else `$ISCRS_MAPS`
@@ -93,57 +102,85 @@ cargo run --release -- transliterate alalc-bul-Cyrl-Latn-1997 "Кириллиц�
 cargo run --release -- test alalc-ell-Grek-Latn-1997 alalc-ara-Arab-Latn-1997 din-san-Deva-Latn-33904-2018
 ```
 
-## Status (slice 1, `feat/interscript-rs-slice1`)
+## Status (slice 2, `feat/interscript-rs-slice2`)
 
-- `grammar-test`: 8/8 embedded parg suite cases pass.
-- `parse-all ../maps/maps`: **401/401** files parsed — same total as the
-  interscript-ruby `tools/isc-parg-check` baseline (401/401 over the
-  same corpus with the same grammar). A deterministic 201-file sample
-  (`every other file`) parses 201/201 under both.
-- `test-all ../maps/maps`: **10 772 embedded tests passed, 29 failed**
-  across 396 maps-with-tests. All 9 failing maps (alalc-ban, alalc-bod,
-  alalc-khm, alalc-lao, alalc-lif, alalc-mni, alalc-mya, bgnpcgn-tha,
-  din-fas) fail the SAME tests under interscript-ruby (verified
-  per-map; e.g. the Thai map's comment records the pending WO80
-  capture-reorder semantics its tests are written for). 387 maps pass
-  100% of their tests.
-- The vendored `tests/corpus/` maps (boundary before/after, empty
-  constraints, any/negation, capture-ref, parallel longest-match and
-  duplicate-key tree semantics, funcall chain, library import, aliased
-  stage run, nested any) are all Ruby-verified.
+- Slice 1 holds: `grammar-test` 8/8; `parse-all ../maps/maps` 401/401;
+  `test-all` 10 772 passed / 29 failed (the same 9 maps fail the same
+  tests under interscript-ruby).
+- **IMF v1 loader** (`src/imf/loader.rs`): zip member verification per
+  SPEC.md §3/C3 — format/tokenizer rejection, every `.onnx` member
+  checked against the manifest sha256 map, uncovered members refused.
+  `src/imf/registry.rs` implements §1/§2/C1/C2: `models.yaml` index
+  (`version: 1`, `SECRYST_INDEX`), WO87 rename aliases, cache hits
+  re-verified, downloads (single URL, `file://` mirrors, split parts
+  verified as they land) installed atomically into `SECRYST_CACHE`.
+- **Inference** (`src/imf/infer.rs`): the single-row greedy contract
+  (CONFORMANCE.md) — byte+3 ids with trailing EOS, one-row encoder
+  calls, greedy argmax until EOS with the 512-step cap — over the
+  mockable `InferenceEngine` trait; `ort` sessions implement it.
+- **Conformance harness** (`iscrs conformance`): the frozen fixtures
+  in `interscript-models/conformance/` run byte-exact:
+  - `khm-phonemic-1.0`: **12/12**
+  - `tha-phonemic-1.0`: **12/12**
+  - `tha-g2p-lex-1.0`: **12/12** (pre-rename id; same zip, resolved by
+    its metadata id)
+  fas/urd fixtures reference fp16/larger artifacts not in the local
+  cache; the same command resolves them via the index + cache (and
+  would download per §2) — not run here.
+- **Reverse chains** (`src/reverse.rs`): `Document#reverse` parity for
+  the slice-1 subset — stage/rule order reversal, `to upcase`/`to
+  downcase` from-tree case swap, boundary-alias hoisting into `to`,
+  capture/ref exchange, kor_maybedash, funcall inversion via
+  `reverse_function`, `reverse_name`, empty-from rules marked
+  reverse_run and skipped by the executor. Every expectation in
+  `tests/reverse.rs` was generated with interscript-ruby origin/main
+  (fresh clone); Ruby wins. `upcase` funcall reverse is a clean
+  Unsupported (the Ruby map omits it and crashes).
 
 ## Conformance plan
 
-Slice 1 pins semantics against the Ruby interpreter directly (the
+Slice 1 pinned semantics against the Ruby interpreter directly (the
 conformance-proven runtime): every vendored test expectation in
 `tests/corpus/` was verified against `interscript-ruby` before being
 committed, and the corpus sweeps run the maps corpus's own embedded
 tests.
 
-Slice 2 binds the runtime to the frozen conformance fixtures in
-`interscript-models/conformance/` (the fixtures DECIDE runtime
-equivalence): a fixture loader reads the frozen input/expected pairs
-and a `conformance` test runs the whole set byte-identical, driven by
-`interscript-models/models.yaml` (index-v12) resolution so map ids and
-artifact pins come from the registry rather than a hardcoded list.
+Slice 2 binds the runtime to BOTH fixture layers: the frozen ISC-map
+semantics (slice 1, `tests/corpus/`) and the frozen IMF model vectors
+(`interscript-models/conformance/`, byte-exact through the ort
+inference path — counts above). Reviewer commands:
 
-Model inference (the WO14 b-leg) lands on top: load IMF v1 artifacts
-per `interscript-models/SPEC.md` — `encoder.onnx` +
-`decoder-kv.onnx` + `metadata.yaml`, sha256-verified against
-`models.yaml` — through the `ort` crate (ONNX Runtime), ByT5 byte+3
-tokenizer with trailing EOS (id 1; raw `text.bytes` is the known
-silent-garbage trap), greedy + KV-cache decode. Parity gate before
-shipping: >= 500 samples single-row greedy vs the Ruby/TS runtimes,
-batched decode only for masked-encoder exports. NOT in slice 1 — no
-ort code exists in this tree yet.
+```
+cargo run --release -- conformance \
+  ../interscript-models/conformance/khm-phonemic-vectors.json \
+  ~/.cache/secryst/models
+cargo run --release -- conformance \
+  ../interscript-models/conformance/tha-phonemic-vectors.json \
+  ~/.cache/secryst/models
+cargo run --release -- infer \
+  ~/.cache/secryst/models/khm-phonemic-1.0/khm-phonemic-1.0.zip "ភាសាវិទូ"
+```
 
-## Known gaps (slice 1)
+Artifacts are never committed; they resolve from `SECRYST_CACHE`
+(`~/.cache/secryst`, the shared layout) or an explicit artifact dir,
+sha256-verified against `models.yaml` before use.
 
-- **Reverse chains are not implemented** (no `Document#reverse`,
-  no reverse rule execution). Reverse semantics live in the Ruby
-  `Node#reverse` layer and are not exercised by the ISC corpus or
-  parsanol; guessing them here would violate the "fixtures decide"
-  law. Deferred until the conformance fixtures require them.
+## Known gaps (slice 2)
+
+- **Batched/beam decode and KV-cache decode are not implemented** —
+  the artifact contract is single-row greedy (WO51), and both fixture
+  families are `decoder: plain`; `decoder-kv.onnx` members load but
+  decode through the plain graph.
+- fp16 artifacts load and verify but the greedy loop reads logits as
+  f32; fp16 graph outputs cast on extraction — fas/urd fp16 families
+  unrun locally (artifacts not cached).
+- `iscrs infer` decodes with the SPEC §4 token table; the conformance
+  harness uses the fixture generator's byte rule (`max(0, t-3)`); on
+  the proven families the two agree (no pad/unk argmax observed).
+- Reverse: sub-rule `priority:` is not modeled (the slice-1 Sub has no
+  priority field); reverse of `repeat` items in to-upcase/downcase
+  subs and of boundary hoisting that consumes a whole from-group
+  raise Unsupported where Ruby crashes (NoMethodError).
 - `rababa` / `secryst` funcalls need external ML engines: clean
   `Unsupported` errors.
 - The `upcase` stage directive parses (the grammar accepts it) but is

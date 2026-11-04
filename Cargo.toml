@@ -17,6 +17,40 @@ unicode-general-category = "1.1.0"
 # parity). Not in parsanol-rs's dependency set; unavoidable for the 79
 # corpus maps that emit compose directives.
 unicode-normalization = "0.1"
+# IMF v1 artifact integrity (interscript-models SPEC.md C2/C3): the
+# whole-artifact digest and every .onnx member digest are sha256.
+sha2 = "0.11"
+# IMF v1 artifacts are zips (metadata.yaml + encoder.onnx + decoder.onnx).
+# Deflate-only: released artifacts compress members with DEFLATE and the
+# SPEC requires no other codec; every other zip feature is dead weight.
+zip = { version = "9.3", default-features = false, features = ["deflate"] }
+# metadata.yaml (the in-artifact manifest) and models.yaml (the index)
+# are YAML mappings; serde_yaml is the minimal-parser choice (libyaml
+# core, no codegen runtime beyond serde itself).
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+# The frozen conformance vectors files (interscript-models/conformance/)
+# are JSON documents.
+serde_json = "1"
+# SPEC §2: artifacts not yet in the cache are fetched from the index's
+# URL channel (GitHub Releases assets or file:// mirrors) and verified
+# before installation. Sync client; rustls keeps it free of OpenSSL.
+ureq = { version = "3.1", default-features = false, features = ["rustls"] }
+# ONNX Runtime inference for IMF v1 artifacts (the WO14 b-leg): the
+# encoder/decoder graphs run through the same onnxruntime the Python
+# reference loader uses. ort 2.0.0-rc.15 (the current 2.0-line
+# release); `download-binaries` ships onnxruntime ms@1.31.0 prebuilts
+# (the api-* features gate the C API surface, not the binary —
+# 1.31 is the only shipped dist). macOS needs the .cargo/config.toml
+# -U link workaround for the CoreML EP symbols. ndarray and tracing
+# are off: the engine reads raw (&Shape, &[f32]) tensors and logs
+# through the CLI, so neither is exercised.
+ort = { version = "2.0.0-rc.15", default-features = false, features = [
+    "std",
+    "download-binaries",
+    "tls-rustls",
+    "copy-dylibs",
+] }
 
 [lib]
 name = "interscript_rs"

@@ -43,16 +43,23 @@ impl From<Error> for CliError {
 fn usage() -> String {
     r#"commands:
   transliterate <map_id> <string> [--stage NAME]
+  reverse <map_id> <string> [--stage NAME]   # run the reversed document
   test <map_id>...
   test-all [--root DIR] [--limit N]
   parse <file-or-dir>...
   parse-all [--root DIR]
   grammar-test
+  infer <artifact_zip_or_model_id> <string> [--max-len N]
+  conformance <fixture_file_or_dir> [<artifact_dir>]
 
 options:
   --maps DIR...    add a maps/library directory to the load path
                    (default: $ISCRS_MAPS or the sibling maps checkout)
-  --json           machine-readable summary lines (test-all/parse-all)"#
+  --json           machine-readable summary lines (test-all/parse-all)
+
+environment (IMF commands):
+  SECRYST_INDEX    models.yaml index URL or path (default: index-v12)
+  SECRYST_CACHE    artifact cache dir (default: ~/.cache/secryst)"#
         .to_string()
 }
 
@@ -61,6 +68,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
     let mut positional: Vec<String> = Vec::new();
     let mut stage = "main".to_string();
     let mut limit: Option<usize> = None;
+    let mut max_len = interscript_rs::imf::infer::MAX_DECODE_STEPS;
     let mut json = false;
     let mut iter = args.iter();
     while let Some(arg) = iter.next() {
@@ -81,12 +89,32 @@ fn run(args: &[String]) -> Result<(), CliError> {
                     .ok_or_else(|| CliError::Usage("--limit needs a value".into()))?;
                 limit = Some(v.parse().map_err(|_| CliError::Usage("--limit needs a number".into()))?);
             }
+            "--max-len" => {
+                let v = iter
+                    .next()
+                    .ok_or_else(|| CliError::Usage("--max-len needs a value".into()))?;
+                max_len = v
+                    .parse()
+                    .map_err(|_| CliError::Usage("--max-len needs a number".into()))?;
+            }
             "--json" => json = true,
             other if other.starts_with("--") => {
                 return Err(CliError::Usage(format!("unknown option {other}")));
             }
             _ => positional.push(arg.clone()),
         }
+    }
+
+    let Some(cmd) = positional.first() else {
+        return Err(CliError::Usage(usage()));
+    };
+    let rest = &positional[1..];
+
+    // The IMF commands do not need a maps load path.
+    match cmd.as_str() {
+        "infer" => return cmd_infer(rest, max_len).map_err(CliError::from),
+        "conformance" => return cmd_conformance(rest).map_err(CliError::from),
+        _ => {}
     }
 
     let load_path = if maps_dirs.is_empty() {
@@ -100,11 +128,6 @@ fn run(args: &[String]) -> Result<(), CliError> {
         ));
     }
 
-    let Some(cmd) = positional.first() else {
-        return Err(CliError::Usage(usage()));
-    };
-    let rest = &positional[1..];
-
     match cmd.as_str() {
         "transliterate" => {
             if rest.len() != 2 {
@@ -112,6 +135,20 @@ fn run(args: &[String]) -> Result<(), CliError> {
             }
             let rt = Runtime::new(load_path);
             let out = rt.transliterate_stage(&rest[0], &stage, &rest[1])?;
+            println!("{out}");
+        }
+        "reverse" => {
+            if rest.len() != 2 {
+                return Err(CliError::Usage("usage: reverse <map_id> <string>".into()));
+            }
+            let rt = Runtime::new(load_path);
+            let doc = rt.load(&rest[0])?;
+            let reversed = interscript_rs::reverse::reverse_document(&doc)?;
+            let out = interscript_rs::interpreter::execute_stage_pub(
+                &reversed,
+                &stage,
+                &rest[1],
+            )?;
             println!("{out}");
         }
         "test" => {
@@ -292,6 +329,177 @@ fn list_isc(root: &Path) -> Vec<PathBuf> {
     collect_isc(root, &mut out);
     out.sort();
     out
+}
+
+// ----------------------------------------------------------------------
+// IMF v1 commands (infer / conformance)
+// ----------------------------------------------------------------------
+
+/// `iscrs infer <artifact_zip_or_model_id> <string>`: resolve (local
+/// path or models.yaml id -> verified cache), greedy single-row
+/// decode, print the translated string.
+fn cmd_infer(rest: &[String], max_len: usize) -> interscript_rs::Result<()> {
+    if rest.len() != 2 {
+        return Err(interscript_rs::Error::Io(
+            "usage: infer <artifact_zip_or_model_id> <string>".into(),
+        ));
+    }
+    let artifact = resolve_artifact_arg(&rest[0])?;
+    println!(
+        "# artifact: {}",
+        artifact.display()
+    );
+    let graphs = interscript_rs::imf::loader::verify_and_read(&artifact)?;
+    println!(
+        "# model {} (decoder: {:?}, precision: {}, opset: {}), members sha256-verified",
+        graphs.manifest.id,
+        graphs.manifest.decoder,
+        graphs.manifest.precision,
+        graphs.manifest.opset
+    );
+    let mut engine = interscript_rs::imf::infer::OrtEngine::from_graphs(&graphs)?;
+    let out = interscript_rs::imf::infer::translate(&mut engine, &rest[1], max_len)?;
+    println!("{out}");
+    Ok(())
+}
+
+fn resolve_artifact_arg(arg: &str) -> interscript_rs::Result<PathBuf> {
+    let path = Path::new(arg);
+    if arg.ends_with(".zip") || path.exists() {
+        // Model.load parity: an existing path is used directly.
+        return Ok(path.to_path_buf());
+    }
+    // models.yaml id: index (SECRYST_INDEX / default) + cache/download.
+    let index = interscript_rs::imf::registry::load_index(None)?;
+    interscript_rs::imf::registry::resolve(arg, &index)
+}
+
+/// `iscrs conformance <fixture_file_or_dir> [<artifact_dir>]`: load
+/// the frozen vectors, resolve each family's artifact, run every row,
+/// report byte-exact pass counts. Exit failure on any mismatch.
+fn cmd_conformance(rest: &[String]) -> interscript_rs::Result<()> {
+    if rest.is_empty() || rest.len() > 2 {
+        return Err(interscript_rs::Error::Io(
+            "usage: conformance <fixture_file_or_dir> [<artifact_dir>]".into(),
+        ));
+    }
+    let fixture_path = Path::new(&rest[0]);
+    let artifact_dir = rest.get(1).map(|d| PathBuf::from(d));
+
+    // One index load shared across families (registry mode).
+    let index = if artifact_dir.is_none() {
+        Some(interscript_rs::imf::registry::load_index(None)?)
+    } else {
+        None
+    };
+
+    let mut fixture_files: Vec<PathBuf> = Vec::new();
+    if fixture_path.is_dir() {
+        let mut entries: Vec<PathBuf> = std::fs::read_dir(fixture_path)
+            .map_err(|e| interscript_rs::Error::Io(format!("{}: {e}", fixture_path.display())))?
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("json"))
+            .collect();
+        entries.sort();
+        fixture_files.extend(entries);
+    } else {
+        fixture_files.push(fixture_path.to_path_buf());
+    }
+
+    let mut families = 0usize;
+    let mut skipped = 0usize;
+    let mut rows_total = 0usize;
+    let mut rows_passed = 0usize;
+    let mut any_mismatch = false;
+    let mut any_skip = false;
+
+    for file in &fixture_files {
+        let vectors = match interscript_rs::imf::conformance::Vectors::load(file) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("SKIP {}: {e}", file.display());
+                any_skip = true;
+                skipped += 1;
+                continue;
+            }
+        };
+        let artifact = match interscript_rs::imf::conformance::resolve_artifact(
+            &vectors.model,
+            artifact_dir.as_deref(),
+            index.as_ref(),
+        ) {
+            Ok(a) => a,
+            Err(e) => {
+                println!("SKIP {}: {e}", vectors.model);
+                any_skip = true;
+                skipped += 1;
+                continue;
+            }
+        };
+        // C2: the whole artifact is re-verified against the index
+        // digest when the index knows the entry.
+        if let Some(index) = &index {
+            let canonical = index.canonical_id(&vectors.model);
+            if let Some(entry) = index.models.get(&canonical) {
+                let actual = interscript_rs::imf::loader::sha256_file(&artifact)?;
+                if actual != entry.sha256 {
+                    println!(
+                        "FAIL {}: artifact sha256 mismatch ({} has {actual}, index says {})",
+                        vectors.model,
+                        artifact.display(),
+                        entry.sha256
+                    );
+                    any_mismatch = true;
+                    continue;
+                }
+            }
+        }
+        let graphs = interscript_rs::imf::loader::verify_and_read(&artifact)?;
+        let mut engine = interscript_rs::imf::infer::OrtEngine::from_graphs(&graphs)?;
+        let result = interscript_rs::imf::conformance::run_conformance(&vectors, &mut engine)?;
+
+        let passed = result.checked - result.mismatches.len();
+        families += 1;
+        rows_total += result.checked;
+        rows_passed += passed;
+        println!(
+            "{}: {passed}/{} byte-exact  (artifact {})",
+            vectors.model,
+            result.checked,
+            artifact.display()
+        );
+        for m in &result.mismatches {
+            println!(
+                "  row {} src {:?}\n    expected {:?}\n    got      {:?}",
+                m.index, m.src, m.expected, m.got
+            );
+        }
+        if !result.passed() {
+            any_mismatch = true;
+        }
+    }
+
+    println!(
+        "conformance: {families} families, {rows_passed}/{rows_total} rows byte-exact{}",
+        if any_skip {
+            format!(", {skipped} skipped (artifact not resolvable locally)")
+        } else {
+            String::new()
+        }
+    );
+    if any_mismatch {
+        return Err(interscript_rs::Error::Io(
+            "conformance reported mismatches above".into(),
+        ));
+    }
+    if any_skip {
+        return Err(interscript_rs::Error::Io(
+            "conformance incomplete: skipped families above (fetch their artifacts, \
+             then re-run)"
+                .into(),
+        ));
+    }
+    Ok(())
 }
 
 fn collect_isc(path: &Path, out: &mut Vec<PathBuf>) {

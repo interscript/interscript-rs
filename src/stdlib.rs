@@ -155,6 +155,8 @@ pub fn is_ruby_word_char(ch: char) -> bool {
 pub struct Funcall {
     pub name: FuncallName,
     pub kwargs: Vec<(String, String)>,
+    /// Ruby `reverse_run:` (skipped forward / run reversed).
+    pub reverse_run: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,6 +181,21 @@ impl FuncallName {
             "compose" => FuncallName::Compose,
             "decompose" => FuncallName::Decompose,
             _ => return None,
+        })
+    }
+
+    /// `Interscript::Stdlib.reverse_function`: the inverse funcall
+    /// used by `Funcall#reverse`. `upcase` has no entry (the Ruby map
+    /// omits it, so reversing an upcase funcall crashes there).
+    pub fn reverse_name(&self) -> Option<FuncallName> {
+        Some(match self {
+            FuncallName::TitleCase => FuncallName::Downcase, // best-effort per Ruby
+            FuncallName::Downcase => FuncallName::TitleCase, // best-effort per Ruby
+            FuncallName::Compose => FuncallName::Decompose,
+            FuncallName::Decompose => FuncallName::Compose,
+            FuncallName::Separate => FuncallName::Unseparate,
+            FuncallName::Unseparate => FuncallName::Separate,
+            FuncallName::Upcase => return None,
         })
     }
 
