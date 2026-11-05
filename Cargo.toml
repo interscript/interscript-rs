@@ -2,8 +2,11 @@
 name = "interscript-rs"
 version = "0.1.0"
 edition = "2021"
-publish = false
+publish = true
 description = "Rust runtime for Interscript ISC maps, executing the parsanol .parg grammar"
+license = "BSD-3-Clause"
+repository = "https://github.com/interscript/interscript-rs"
+homepage = "https://www.interscript.org"
 
 [dependencies]
 # The ISC grammar compiler + PEG engine (grammar/isc.parg compiles through
