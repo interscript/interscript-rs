@@ -1,8 +1,9 @@
 [package]
-name = "interscript-rs"
+name = "interscript"
 version = "0.1.0"
 edition = "2021"
 publish = true
+
 description = "Rust runtime for Interscript ISC maps, executing the parsanol .parg grammar"
 license = "BSD-3-Clause"
 repository = "https://github.com/interscript/interscript-rs"
