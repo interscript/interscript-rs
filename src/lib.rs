@@ -11,6 +11,7 @@
 pub mod builder;
 pub mod document;
 pub mod error;
+pub mod fetch;
 pub mod grammar;
 pub mod imf;
 pub mod interpreter;
