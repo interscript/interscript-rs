@@ -1,0 +1,25 @@
+name: publish
+
+# crates.io Trusted Publishing: the crate owner registers this repo +
+# workflow filename on crates.io (Account settings → Trusted Publishing),
+# then a manual dispatch publishes with OIDC - no crates.io token.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install stable Rust (cargo trusted-publishing capable)
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Verify version
+        run: cargo metadata --no-deps --format-version 1 | grep -o '"version":"0.1.0"'
+      - name: Publish to crates.io
+        run: cargo publish
