@@ -48,6 +48,7 @@ fn usage() -> String {
   test-all [--root DIR] [--limit N]
   parse <file-or-dir>...
   parse-all [--root DIR]
+  maps-fetch <version> [--dest DIR]   # fetch + verify + unpack the maps corpus release
   grammar-test
   infer <artifact_zip_or_model_id> <string> [--max-len N]
   conformance <fixture_file_or_dir> [<artifact_dir>]
@@ -98,6 +99,9 @@ fn run(args: &[String]) -> Result<(), CliError> {
                     .map_err(|_| CliError::Usage("--max-len needs a number".into()))?;
             }
             "--json" => json = true,
+            // maps-fetch takes its own --dest; pass it through to the
+            // subcommand parser as positionals.
+            "--dest" => positional.push("--dest".into()),
             other if other.starts_with("--") => {
                 return Err(CliError::Usage(format!("unknown option {other}")));
             }
@@ -114,6 +118,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
     match cmd.as_str() {
         "infer" => return cmd_infer(rest, max_len).map_err(CliError::from),
         "conformance" => return cmd_conformance(rest).map_err(CliError::from),
+        "maps-fetch" => return cmd_maps_fetch(rest).map_err(CliError::Usage),
         _ => {}
     }
 
@@ -517,4 +522,29 @@ fn collect_isc(path: &Path, out: &mut Vec<PathBuf>) {
     } else if path.extension().and_then(|e| e.to_str()) == Some("isc") {
         out.push(path.to_path_buf());
     }
+}
+
+/// `iscrs maps-fetch <version> [--dest DIR]` — download + verify + unpack
+/// the raw maps corpus release archive into a usable load path.
+fn cmd_maps_fetch(rest: &[String]) -> Result<(), String> {
+    let mut version: Option<&str> = None;
+    let mut dest = std::path::PathBuf::from("maps-corpus");
+    let mut it = rest.iter();
+    while let Some(arg) = it.next() {
+        match arg.as_str() {
+            "--dest" => {
+                dest = std::path::PathBuf::from(
+                    it.next().ok_or("usage: maps-fetch <version> [--dest DIR]")?,
+                )
+            }
+            other if other.starts_with("--") => return Err(format!("unknown option {other}")),
+            other => version = Some(other),
+        }
+    }
+    let version = version.ok_or("usage: maps-fetch <version> [--dest DIR]")?;
+    let maps_dir = interscript_rs::fetch::fetch_corpus(version, &dest)
+        .map_err(|e| format!("{e}"))?;
+    println!("fetched maps {version} -> {}", maps_dir.display());
+    println!("load path: iscrs --maps {} --maps {} ...", maps_dir.display(), dest.join("libs").display());
+    Ok(())
 }

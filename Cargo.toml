@@ -28,6 +28,10 @@ sha2 = "0.11"
 # Deflate-only: released artifacts compress members with DEFLATE and the
 # SPEC requires no other codec; every other zip feature is dead weight.
 zip = { version = "9.3", default-features = false, features = ["deflate"] }
+# maps-fetch: the maps corpus releases are .tar.gz (git archive) — gzip
+# stream decode + tar unpack into a load-path directory.
+flate2 = "1"
+tar = "0.4"
 # metadata.yaml (the in-artifact manifest) and models.yaml (the index)
 # are YAML mappings; serde_yaml is the minimal-parser choice (libyaml
 # core, no codegen runtime beyond serde itself).
