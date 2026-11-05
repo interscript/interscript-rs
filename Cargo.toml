@@ -10,9 +10,9 @@ homepage = "https://www.interscript.org"
 
 [dependencies]
 # The ISC grammar compiler + PEG engine (grammar/isc.parg compiles through
-# this). Local checkout path while parsanol 0.19.x is not on crates.io —
-# the same pin the interscript-ruby tools/isc-parg-check harness uses.
-parsanol = { path = "/Users/mulgogi/src/parsanol/parsanol-rs/parsanol" }
+# this). Pinned to the 0.19.8 crates.io release the grammar, corpus
+# sweep (10,772 tests) and conformance runs were verified against.
+parsanol = { path = "/Users/mulgogi/src/parsanol/parsanol-rs/parsanol", version = "0.19.8" }
 # Ruby \b/\B word-char table (Unicode Word = Alphabetic|Mark|Nd|Pc —
 # Onigmo parity for boundary primitives; std lacks general categories).
 unicode-general-category = "1.1.0"
