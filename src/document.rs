@@ -23,6 +23,10 @@ pub struct Sub {
     /// The ISC grammar cannot express it; only `Document::reverse`
     /// produces it.
     pub reverse_run: Option<bool>,
+    /// ISC-WF-1 W3: the `when` language guards (§5). Empty = unguarded
+    /// (always applicable). A guarded rule applies only when the caller
+    /// selects one of these languages.
+    pub when: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +49,25 @@ impl Sub {
             }
         }
         len
+    }
+
+    /// ISC-WF-1 W2/W3 canonical from-key: the structural rendering of
+    /// the EXPANDED from item. For literal froms this is byte-exact
+    /// string equality (the corpus convention — no Unicode
+    /// normalization); non-literal froms (any()/alias trees) compare
+    /// structurally, which is the exact-from generalization the spec's
+    /// "from(o) == from(r)" needs on resolved items.
+    pub fn from_key(&self) -> String {
+        format!("{:?}", self.from)
+    }
+
+    /// W3 applicability: unguarded rules always apply; a guarded rule
+    /// applies only when the caller selected one of its languages
+    /// (§5.1 — no selection, or an undeclared selection, leaves every
+    /// guard inert).
+    pub fn guard_applies(&self, language: Option<&str>) -> bool {
+        self.when.is_empty()
+            || language.is_some_and(|l| self.when.iter().any(|w| w == l))
     }
 }
 
@@ -99,6 +122,10 @@ pub struct Document {
     pub system_code: String,
     pub aliases: BTreeMap<String, Item>,
     pub stages: BTreeMap<String, Stage>,
+    /// ISC-WF-1 W1: the map's named rulesets, fully use-expanded at
+    /// load time. Never executed directly (§3.2 — a ruleset is not a
+    /// stage); only `use` splices their items into a stage.
+    pub rulesets: BTreeMap<String, Stage>,
     /// Aliased dependencies (stage-run targets), keyed by alias.
     pub dep_aliases: BTreeMap<String, Rc<Document>>,
     /// Library imports (unaliased dependencies), loaded documents.
@@ -106,6 +133,8 @@ pub struct Document {
     pub tests: Tests,
     /// Raw metadata key/value text pairs (inert for transliteration).
     pub metadata: Vec<(String, String)>,
+    /// ISC-WF-1 W3: the languages the map declares (`languages a b`).
+    pub languages: Vec<String>,
 }
 
 impl Document {

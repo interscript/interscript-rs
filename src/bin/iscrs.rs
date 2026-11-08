@@ -42,8 +42,9 @@ impl From<Error> for CliError {
 
 fn usage() -> String {
     r#"commands:
-  transliterate <map_id> <string> [--stage NAME]
-  reverse <map_id> <string> [--stage NAME]   # run the reversed document
+  transliterate <map_id> <string> [--stage NAME] [--language LANG]
+  reverse <map_id> <string> [--stage NAME] [--language LANG]
+                                          # run the reversed document
   test <map_id>...
   test-all [--root DIR] [--limit N]
   parse <file-or-dir>...
@@ -57,6 +58,8 @@ fn usage() -> String {
 options:
   --maps DIR...    add a maps/library directory to the load path
                    (default: $ISCRS_MAPS or the sibling maps checkout)
+  --language LANG  ISC-WF-1 W3 language selection for transliterate
+                   (guards inert when the map does not declare LANG)
   --json           machine-readable summary lines (test-all/parse-all)
 
 environment (IMF commands):
@@ -69,6 +72,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
     let mut maps_dirs: Vec<PathBuf> = Vec::new();
     let mut positional: Vec<String> = Vec::new();
     let mut stage = "main".to_string();
+    let mut language: Option<String> = None;
     let mut limit: Option<usize> = None;
     let mut max_len = interscript_rs::imf::infer::MAX_DECODE_STEPS;
     let mut json = false;
@@ -84,6 +88,13 @@ fn run(args: &[String]) -> Result<(), CliError> {
                     .next()
                     .ok_or_else(|| CliError::Usage("--stage needs a value".into()))?
                     .clone();
+            }
+            "--language" => {
+                language = Some(
+                    iter.next()
+                        .ok_or_else(|| CliError::Usage("--language needs a value".into()))?
+                        .clone(),
+                );
             }
             "--limit" => {
                 let v = iter
@@ -144,7 +155,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
                 return Err(CliError::Usage("usage: transliterate <map_id> <string>".into()));
             }
             let rt = Runtime::new(load_path);
-            let out = rt.transliterate_stage(&rest[0], &stage, &rest[1])?;
+            let out = rt.transliterate_stage(&rest[0], &stage, &rest[1], language.as_deref())?;
             println!("{out}");
         }
         "reverse" => {
@@ -158,6 +169,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
                 &reversed,
                 &stage,
                 &rest[1],
+                language.as_deref(),
             )?;
             println!("{out}");
         }

@@ -4,13 +4,21 @@
 //! (document assembly). Dependencies load BEFORE conversion so
 //! class-context charset resolution sees imported aliases
 //! (NodeAdapter#build ordering).
+//!
+//! ISC-WF-1 (this crate's workflow-extension layer): W1 named
+//! rulesets and W2 `use` + `override` resolve AT LOAD TIME — the
+//! parser captures the constructs, the builder expands `use` sites
+//! inline (recursive, cycle = load error) and merges overrides per
+//! spec §4.2, so the Document stays flat (expanded StageItems only).
+//! W3 (`languages` / `when`) is runtime — see interpreter.rs.
 
 use crate::document::{Dependency, Document, Stage, StageItem, Sub, SubTo, Tests};
 use crate::error::{Error, Result};
 use crate::item::{FuncName, Item};
 use crate::stdlib::{Funcall, FuncallName, Prim};
 use crate::tree::{leaf_text, pget, TNode};
-use std::collections::BTreeMap;
+use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 /// Dependency targets declared by a parsed tree, in order
@@ -49,6 +57,9 @@ pub fn build(
     let mut tests = Tests::default();
     let mut stage_nodes: Vec<(String, &TNode)> = Vec::new();
     let mut dependencies: Vec<Dependency> = Vec::new();
+    // ISC-WF-1: named rulesets (raw bodies) + declared languages.
+    let mut ruleset_nodes: Vec<(String, &TNode)> = Vec::new();
+    let mut languages: Vec<String> = Vec::new();
 
     for block in &body {
         let Some(hash) = block.ruby_array_hash() else { continue };
@@ -70,6 +81,12 @@ pub fn build(
             }
         } else if let (Some(name_node), Some(stage_node)) = (pget(hash, "stage_name"), pget(hash, "stage")) {
             stage_nodes.push((ident(name_node), stage_node));
+        } else if let (Some(name_node), Some(rs_node)) = (pget(hash, "ruleset_name"), pget(hash, "ruleset")) {
+            ruleset_nodes.push((ident(name_node), rs_node));
+        } else if let Some(lang_list) = pget(hash, "language") {
+            for l in lang_list.ruby_array() {
+                languages.push(ident(l));
+            }
         } else if let Some(t) = pget(hash, "target") {
             let target = unquote(t);
             let alias = pget(hash, "alias").map(ident);
@@ -91,7 +108,26 @@ pub fn build(
         },
         local_raw: alias_nodes.clone(),
         dep_docs,
+        ruleset_raw: ruleset_nodes,
+        ruleset_memo: RefCell::new(BTreeMap::new()),
+        ruleset_stack: RefCell::new(Vec::new()),
     };
+
+    // Phase A (W1): expand every declared ruleset (memoized, cycle
+    // checked) BEFORE the stages, so `use` sites hit the memo. A
+    // declared-but-never-used ruleset still expands — a broken or
+    // cyclic definition is a load error regardless of use (§6.4).
+    for (name, _) in &ctx.ruleset_raw {
+        ctx.local_ruleset(name)?;
+    }
+    let rulesets: BTreeMap<String, Stage> = ctx.ruleset_memo.borrow().clone();
+
+    // §5.1: languages are declared once per map; repeated declarations
+    // union in declaration order.
+    {
+        let mut seen = BTreeSet::new();
+        languages.retain(|l| seen.insert(l.clone()));
+    }
 
     // Pass 2: convert (aliases first — stages may reference them).
     let mut aliases = BTreeMap::new();
@@ -110,6 +146,7 @@ pub fn build(
         system_code,
         aliases,
         stages,
+        rulesets,
         dep_aliases: dep_docs
         .iter()
         .filter_map(|(k, v)| {
@@ -122,6 +159,7 @@ pub fn build(
         imports: imports.to_vec(),
         tests,
         metadata,
+        languages,
     })
 }
 
@@ -132,6 +170,14 @@ struct Ctx<'a> {
     local_raw: Vec<(String, TNode)>,
     /// Aliased dependency documents (qualified-alias expansion).
     dep_docs: &'a BTreeMap<String, Rc<Document>>,
+    /// ISC-WF-1 W1: raw local ruleset bodies, declaration order.
+    ruleset_raw: Vec<(String, &'a TNode)>,
+    /// W1 expansion memo: fully expanded rulesets. A ruleset currently
+    /// being expanded is NOT in the memo (the stack holds it instead).
+    ruleset_memo: RefCell<BTreeMap<String, Stage>>,
+    /// W1 expansion stack — bare `use` chain cycle detection (§3.2:
+    /// cycles are a load error).
+    ruleset_stack: RefCell<Vec<String>>,
 }
 
 impl<'a> Ctx<'a> {
@@ -140,11 +186,22 @@ impl<'a> Ctx<'a> {
     // ------------------------------------------------------------------
 
     fn extract_stage(&self, name: &str, node: &TNode) -> Result<Stage> {
+        let items = self.extract_stage_items(node)?;
+        Ok(Stage { name: name.to_string(), items, reverse_run: None })
+    }
+
+    /// The stage-body item loop. A ruleset body is stage items too
+    /// (§3.1), so `local_ruleset` runs this same loop over its body —
+    /// which is what makes nested `use` expansion uniform.
+    fn extract_stage_items(&self, node: &TNode) -> Result<Vec<StageItem>> {
         let mut items: Vec<StageItem> = Vec::new();
         for entry in node.ruby_array() {
             let Some(hash) = entry.ruby_array_hash() else { continue };
             let keys: Vec<&str> = hash.iter().map(|(k, _)| k.as_str()).collect();
-            if keys.contains(&"sequence") {
+            if keys.contains(&"use_map") {
+                // ISC-WF-1 W1/W2: splice the expansion at this position.
+                items.extend(self.resolve_use_items(hash)?);
+            } else if keys.contains(&"sequence") {
                 let node = pget(hash, "sequence").unwrap();
                 items.push(StageItem::Sequential(self.extract_rule_list(node)?));
             } else if keys.contains(&"parallel") {
@@ -206,12 +263,109 @@ impl<'a> Ctx<'a> {
             }
             // comment / noop entries: skipped
         }
-        Ok(Stage { name: name.to_string(), items, reverse_run: None })
+        Ok(items)
+    }
+
+    /// The expanded, CLONED target of one `use` directive. Qualified
+    /// references (`use alias.<ruleset>`, §3.3) resolve through the
+    /// alias's dependency document — whose rulesets are already fully
+    /// expanded, because it was built first (dependency cycles are
+    /// caught in Runtime::load). Bare references go through this map's
+    /// own expansion memo.
+    fn resolve_use_stage(&self, hash: &[(String, TNode)]) -> Result<Stage> {
+        let use_map = pget(hash, "use_map")
+            .map(ident)
+            .ok_or_else(|| Error::MapLogic("use directive without a target".into()))?;
+        match pget(hash, "use_ruleset") {
+            Some(rs_node) => {
+                let rs = ident(rs_node);
+                let doc = self.dep_docs.get(&use_map).ok_or_else(|| {
+                    Error::MapLogic(format!("dep alias {use_map:?} not found"))
+                })?;
+                doc.rulesets.get(&rs).cloned().ok_or_else(|| {
+                    Error::MapLogic(format!("ruleset {rs:?} of dep {use_map:?} not found"))
+                })
+            }
+            None => self.local_ruleset(&use_map),
+        }
+    }
+
+    /// The fully expanded local ruleset `name` (§3.2): memoized; bare
+    /// `use` chains walk the raw declarations under a cycle stack.
+    fn local_ruleset(&self, name: &str) -> Result<Stage> {
+        if let Some(built) = self.ruleset_memo.borrow().get(name) {
+            return Ok(built.clone());
+        }
+        {
+            let stack = self.ruleset_stack.borrow();
+            if stack.iter().any(|n| n == name) {
+                let mut chain = stack.clone();
+                chain.push(name.to_string());
+                return Err(Error::MapLogic(format!(
+                    "use cycle: {}",
+                    chain.join(" -> ")
+                )));
+            }
+        }
+        let node = self
+            .ruleset_raw
+            .iter()
+            .find(|(n, _)| n.as_str() == name)
+            .map(|(_, node)| *node)
+            .ok_or_else(|| Error::MapLogic(format!("ruleset {name:?} not found")))?;
+        self.ruleset_stack.borrow_mut().push(name.to_string());
+        let expanded = self.extract_stage_items(node);
+        self.ruleset_stack.borrow_mut().pop();
+        let stage = Stage {
+            name: name.to_string(),
+            items: expanded?,
+            reverse_run: None,
+        };
+        self.ruleset_memo
+            .borrow_mut()
+            .insert(name.to_string(), stage.clone());
+        Ok(stage)
+    }
+
+    /// `use` at a stage/ruleset-body position: the expansion splices
+    /// in place, in document order, with the override merge applied
+    /// (§4.2) when the directive carries an override block.
+    fn resolve_use_items(&self, hash: &[(String, TNode)]) -> Result<Vec<StageItem>> {
+        let mut stage = self.resolve_use_stage(hash)?;
+        if let Some(orules) = pget(hash, "override_rules") {
+            let overrides = self.extract_rule_list(orules)?;
+            stage.items = merge_override_items(stage.items, overrides)?;
+        }
+        Ok(stage.items)
+    }
+
+    /// `use` inside a parallel/sequence block (§3.2: the expansion
+    /// inherits the enclosing pass structure): the target's rule
+    /// content flattens into the enclosing collection. Non-rule items
+    /// (funcalls, stage runs) cannot join a pass — load error.
+    fn resolve_use_rules(&self, hash: &[(String, TNode)]) -> Result<Vec<Sub>> {
+        let stage = self.resolve_use_stage(hash)?;
+        let mut rules = Vec::new();
+        flatten_rules(&stage.items, &mut rules)?;
+        if let Some(orules) = pget(hash, "override_rules") {
+            let overrides = self.extract_rule_list(orules)?;
+            rules = merge_override_rules(rules, overrides);
+        }
+        Ok(rules)
     }
 
     fn extract_rule_list(&self, node: &TNode) -> Result<Vec<Sub>> {
         let mut rules = Vec::new();
         for r in node.ruby_array() {
+            // ISC-WF-1: `use` inside a rule collection joins the
+            // enclosing pass (§3.2) — expansion flattens into this
+            // list. Must precede the noop filter (a use entry has no
+            // from/to and would look like a comment).
+            if r.has_key("use_map") {
+                let Some(hash) = r.ruby_array_hash() else { continue };
+                rules.extend(self.resolve_use_rules(hash)?);
+                continue;
+            }
             // Noop filter: from none + to none (comment-only blocks).
             if is_none_capture(r.get("from")) && is_none_capture(r.get("to")) {
                 continue;
@@ -262,6 +416,17 @@ impl<'a> Ctx<'a> {
             item => SubTo::Item(item.clone()),
         };
 
+        // ISC-WF-1 W3: the `when` language guards (§5) — the list of
+        // languages this row applies under. Empty = unguarded.
+        let mut when = Vec::new();
+        if let Some(wc) = r.get("when_clause") {
+            if let Some(langs) = wc.get("when_language") {
+                for l in langs.ruby_array() {
+                    when.push(ident(l));
+                }
+            }
+        }
+
         let mut sub = Sub {
             from,
             to: to_target,
@@ -271,6 +436,7 @@ impl<'a> Ctx<'a> {
             not_after,
             group_count: 0,
             reverse_run: None,
+            when,
         };
         // Alias expansion (Ruby's build_item resolves aliases inline,
         // so capture-group numbers follow EXPANSION order): expand
@@ -681,6 +847,77 @@ impl<'a> Ctx<'a> {
         }
         Ok(Item::Str(leaf_text(node)))
     }
+}
+
+// ----------------------------------------------------------------------
+// ISC-WF-1 §4.2 — use/override merge (W2)
+// ----------------------------------------------------------------------
+
+/// Merge on a flat rule list (the collection-context expansion):
+/// partition R by exact from-equality against O; effective expansion =
+/// R_kept (in R's order) followed by O (in O's order). Multiple R
+/// rules sharing an overridden from ALL drop (an override is strictly
+/// stronger, §4.2 rule 1); override rows matching nothing are simply
+/// added (§4.2 rule 4). An override row is complete — it carries its
+/// own to/constraints/when (§4.2 rule 3), so no field merging.
+fn merge_override_rules(rules: Vec<Sub>, overrides: Vec<Sub>) -> Vec<Sub> {
+    let replaced: BTreeSet<String> = overrides.iter().map(|o| o.from_key()).collect();
+    let mut kept: Vec<Sub> = rules
+        .into_iter()
+        .filter(|r| !replaced.contains(&r.from_key()))
+        .collect();
+    kept.extend(overrides);
+    kept
+}
+
+/// Merge over a STRUCTURAL expansion (the stage-position use, §8.1):
+/// matching rules drop from their collections while kept rules stay in
+/// order (§4.2 rules 1-2). The override rows land at the expansion
+/// tail per the amended §4.2.6 (ruby reference PR #834): appended INTO
+/// the final parallel block when the expansion ends with one — so the
+/// child rows share that block's single longest-match pass (§4.2.5) —
+/// otherwise appended as trailing stage-level rows. An expansion with
+/// no rules at all takes O as one trailing sequential item.
+fn merge_override_items(
+    mut items: Vec<StageItem>,
+    overrides: Vec<Sub>,
+) -> Result<Vec<StageItem>> {
+    let replaced: BTreeSet<String> = overrides.iter().map(|o| o.from_key()).collect();
+    for item in items.iter_mut() {
+        if let StageItem::Parallel(list) | StageItem::Sequential(list) = item {
+            list.retain(|r| !replaced.contains(&r.from_key()));
+        }
+    }
+    match items.last_mut() {
+        Some(StageItem::Parallel(list)) => list.extend(overrides),
+        _ => {
+            if !overrides.is_empty() {
+                items.push(StageItem::Sequential(overrides));
+            }
+        }
+    }
+    Ok(items)
+}
+
+/// Flatten a structural expansion into the ordered rule list of an
+/// enclosing pass (`use` inside a parallel/sequence block).
+fn flatten_rules(items: &[StageItem], out: &mut Vec<Sub>) -> Result<()> {
+    for item in items {
+        match item {
+            StageItem::Parallel(list) | StageItem::Sequential(list) => {
+                out.extend(list.iter().cloned());
+            }
+            _ => {
+                return Err(Error::MapLogic(
+                    "use inside a parallel/sequence block: the referenced \
+                     ruleset carries non-rule items (funcalls/stage runs) \
+                     that cannot join the pass"
+                        .into(),
+                ))
+            }
+        }
+    }
+    Ok(())
 }
 
 fn vacuous() -> Item {

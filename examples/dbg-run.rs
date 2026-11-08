@@ -16,6 +16,6 @@ fn main() {
         }
     }
     let un = rt.load("un-ben-Beng-Latn-2016").unwrap();
-    let out = interscript_rs::interpreter::execute_stage_pub(&un, "main", "ত্য");
+    let out = interscript_rs::interpreter::execute_stage_pub(&un, "main", "ত্য", None);
     println!("un-ben direct: {:?}", out);
 }

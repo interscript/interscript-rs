@@ -17,6 +17,12 @@
 #   a >> b                   a b
 #   expr.as(:name)           (expr) as name
 #
+# ISC-WF-1 (docs/isc-wf-1.md, maps PR #259) extends the grammar beyond
+# the Ruby-DSL port with the workflow constructs: ruleset_decl,
+# use_directive, languages_decl, the `when` guard on sub rules, and the
+# four new keywords. Additive only — no corpus map uses them at bare
+# identifier positions, so every pre-WF-1 map parses unchanged.
+#
 # Two semantics worth calling out because the corpus depends on them:
 #
 # * The Ruby DSL's `any` matches ANY character including raw newlines
@@ -110,7 +116,10 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   # by the parg compiler's shadow lint: "any_character" must precede
   # "any" (longest-first). Semantically identical — keyword is used
   # only under negative lookahead, where any matching branch suffices.
-  keyword = ("parallel" / "sequence" / "stage" / "compose" / "separate" / "system" / "metadata" / "aliases" / "tests" / "notes" / "description" / "name" / "authority" / "dependency" / "run" / "sub" / "before" / "after" / "not_before" / "not_after" / "any_character" / "any" / "none" / "boundary" / "line_start" / "line_end" / "word_boundary" / "downcase" / "upcase" / "title_case" / "capture" / "maybe" / "some" / "ref")
+  # ISC-WF-1: the four workflow keywords join the table (spec §2).
+  # `ruleset` deliberately stays OUT (§2 lists exactly these four); it
+  # is a block head like `relations`, which also is not a keyword.
+  keyword = ("parallel" / "sequence" / "stage" / "compose" / "separate" / "system" / "metadata" / "aliases" / "tests" / "notes" / "description" / "name" / "authority" / "dependency" / "run" / "sub" / "before" / "after" / "not_before" / "not_after" / "any_character" / "any" / "none" / "boundary" / "line_start" / "line_end" / "word_boundary" / "downcase" / "upcase" / "title_case" / "capture" / "maybe" / "some" / "ref" / "use" / "override" / "languages" / "when")
 
   # rule(:zero_width_primitive)
   zw_primitive = (("boundary" / "line_start" / "line_end" / "word_boundary" / "space" / "non_boundary")) as primitive
@@ -155,8 +164,11 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
 
   # rule(:item_continuation) — lookahead only: not a block-rule keyword,
   # not `identifier =` (an alias declaration), and starts like an atom.
+  # "when" joins the exclusion list (ISC-WF-1): a trailing `when` clause
+  # must end item concatenation (alias_reference would reject the
+  # keyword anyway; the exclusion is the explicit ruling).
   item_atom_start = %x22 / %x27 / ident_first
-  item_continuation = !("to" / "before" / "after" / "not_before" / "not_after" / "}") (!(identifier [whitespace] "=") item_atom_start)
+  item_continuation = !("to" / "before" / "after" / "not_before" / "not_after" / "when" / "}") (!(identifier [whitespace] "=") item_atom_start)
 
   # rule(:concat_sep) — "+" with optional ws, or required whitespace
   concat_sep = ([whitespace] "+" [whitespace]) / whitespace
@@ -179,13 +191,20 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   # ---------------------------------------------------------------------
 
   # rule(:compact_rule) — from/to are single atoms
-  compact_rule = "sub" whitespace ((item_atom) as from) whitespace ((item_atom) as to) constraints
+  # ISC-WF-1: a sub rule may end with a `when` language guard (§5).
+  compact_rule = "sub" whitespace ((item_atom) as from) whitespace ((item_atom) as to) constraints [([whitespace] ((when_clause) as when_clause))]
 
   # rule(:block_rule) — from/to are concatenations
-  block_rule = "sub" [whitespace] "{" [whitespace] "from" whitespace ((item) as from) [whitespace] "to" whitespace ((item) as to) constraints [whitespace] "}"
+  block_rule = "sub" [whitespace] "{" [whitespace] "from" whitespace ((item) as from) [whitespace] "to" whitespace ((item) as to) constraints [([whitespace] ((when_clause) as when_clause))] [whitespace] "}"
 
   # rule(:rule) — block | compact, ordered
   rule = block_rule / compact_rule
+
+  # ISC-WF-1 §5: the `when` guard — ident list separated by commas or
+  # whitespace (ruby reference grammar: (","|ws ident)*). List items
+  # keyword-guarded (see languages_decl) so the repeat stops at the
+  # next rule instead of swallowing it.
+  when_clause = "when" whitespace ((identifier) as when_language) 0*((comma / whitespace) (((!(keyword) identifier)) as when_language))
 
   # rule(:comment_item) — strict parse: comments only, no stray
   # identifiers (WO87/A4 ruling).
@@ -195,7 +214,9 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   bare_rule = ((rule)) as bare_rule
 
   # rule(:sequence_block) / rule(:parallel_block)
-  rule_line = [whitespace] (rule / comment_item) [whitespace]
+  # rule(:rule_line) — rules, the ISC-WF-1 use directive (§3.2: the
+  # expansion joins the enclosing block's rule list), and comments.
+  rule_line = [whitespace] (rule / use_directive / comment_item) [whitespace]
   rule_items = *(rule_line)
   sequence_block = "sequence" [whitespace] "{" [whitespace] ((rule_items) as sequence) [whitespace] "}"
   parallel_block = "parallel" [whitespace] "{" [whitespace] ((rule_items) as parallel) [whitespace] "}"
@@ -217,8 +238,13 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   # rule(:run_rule) — map.<dep>.stage.<stage> | stage.<stage>
   run_rule = "run" whitespace (("map." ((identifier) as dep) ".stage." ((identifier) as stage)) / (("stage." ((identifier) as stage))) as run_stage_only)
 
-  # rule(:stage_item) — order verbatim
-  stage_item = [whitespace] (sequence_block / parallel_block / run_rule / separate_directive / string_case_directive / compose_directive / rababa_directive / bare_rule / comment_item) [whitespace]
+  # ISC-WF-1 §2/§3/§4 — the use directive: "use" ident ["." ident]
+  # (qualified = dependency alias) with an optional override block.
+  # One syntax, one site (§4.1).
+  use_directive = "use" whitespace ((identifier) as use_map) [("." ((identifier) as use_ruleset))] [([whitespace] "override" [whitespace] "{" [whitespace] ((rule_items) as override_rules) [whitespace] "}")]
+
+  # rule(:stage_item) — order verbatim, plus the ISC-WF-1 use directive
+  stage_item = [whitespace] (sequence_block / parallel_block / run_rule / use_directive / separate_directive / string_case_directive / compose_directive / rababa_directive / bare_rule / comment_item) [whitespace]
   stage_items = *(stage_item)
 
   # rule(:stage_block) — stage(name) | stage name
@@ -299,8 +325,18 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   # Concerns::System
   # ---------------------------------------------------------------------
 
-  # rule(:block_item) — order verbatim
-  block_item = [whitespace] (metadata_block / aliases_block / tests_block / stage_block / dependency_decl) [whitespace]
+  # rule(:block_item) — order verbatim, plus the ISC-WF-1 ruleset and
+  # languages declarations (§3.1: a ruleset appears anywhere a stage
+  # may, at map top level; §5.1: languages sits alongside metadata).
+  block_item = [whitespace] (metadata_block / aliases_block / tests_block / stage_block / ruleset_decl / languages_decl / dependency_decl) [whitespace]
+
+  # ISC-WF-1 §3.1 — named ruleset: stage body items, expanded on use.
+  ruleset_decl = "ruleset" whitespace ((identifier) as ruleset_name) [whitespace] "{" [whitespace] ((stage_items) as ruleset) [whitespace] "}"
+
+  # ISC-WF-1 §5.1 — "languages" ident (","? ident)*, once per map.
+  # The list items are keyword-guarded (alias_arg style) so the
+  # whitespace separator cannot swallow the next block's keyword.
+  languages_decl = "languages" whitespace ((identifier) as language) 0*((comma / whitespace) (((!(keyword) identifier)) as language))
 
   # rule(:system_block)
   system_block = "system" whitespace ((quoted_string) as system_code) [whitespace] "{" [whitespace] ((*(block_item)) as body) [whitespace] "}" [whitespace]
@@ -319,5 +355,23 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
     reject "system \"T:a-b:c-d:1\" { stage main { sub \"a\" } }"
     reject "system \"T:a-b:c-d:1\" { stage main { oops } }"
     reject "system \"T:a-b:c-d:1\" }"
+    # ISC-WF-1 constructs
+    accept "system \"T:a-b:c-d:1\" { ruleset rs { sub \"a\" \"b\" } stage main { use rs } }"
+    accept "system \"T:a-b:c-d:1\" { ruleset rs { parallel { sub \"a\" \"b\" } } stage main { use rs override { sub \"a\" \"c\" } } }"
+    accept "system \"T:a-b:c-d:1\" { dependency \"dep-map\" as dep stage main { use dep.rs override { sub { from \"x\" to \"y\" } } } }"
+    accept "system \"T:a-b:c-d:1\" { languages rus bel ukr stage main { sub \"a\" \"b\" } }"
+    accept "system \"T:a-b:c-d:1\" { languages rus, bel stage main { sub \"a\" \"b\" when kur } }"
+    accept "system \"T:a-b:c-d:1\" { stage main { parallel { sub \"a\" \"b\" when kur, chv } } }"
+    accept "system \"T:a-b:c-d:1\" { stage main { parallel { sub \"a\" \"b\" when kur chv } } }"
+    accept "system \"T:a-b:c-d:1\" { stage main { sub { from \"x\" to \"y\" after boundary when kur } } }"
+    accept "system \"T:a-b:c-d:1\" { stage main { parallel { use rs } } }"
+    reject "system \"T:a-b:c-d:1\" { stage main { use } }"
+    reject "system \"T:a-b:c-d:1\" { stage main { use rs override } }"
+    reject "system \"T:a-b:c-d:1\" { languages }"
+    reject "system \"T:a-b:c-d:1\" { stage main { sub \"a\" \"b\" when } }"
+    reject "system \"T:a-b:c-d:1\" { stage main { sub \"a\" \"b\" when kur override { } } }"
+    reject "system \"T:a-b:c-d:1\" { stage main { parallel { sub \"a\" \"b\" } when kur } }"
+    reject "system \"T:a-b:c-d:1\" { stage main { sub use \"a\" \"b\" } }"
+    reject "system \"T:a-b:c-d:1\" { stage main { sub when \"a\" \"b\" } }"
   }
 }

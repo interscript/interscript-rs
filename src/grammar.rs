@@ -11,8 +11,12 @@ use parsanol::portable::parslet_transform::to_parslet_compatible;
 use parsanol::portable::Grammar;
 use std::sync::OnceLock;
 
-/// Vendored verbatim from interscript-ruby@34bd8829 `grammar/isc.parg`
-/// (introduced in WO13 commit 873caf2; blob c9d4ffc8).
+/// `grammar/isc.parg` — vendored verbatim from interscript-ruby@34bd8829
+/// (introduced in WO13 commit 873caf2; blob c9d4ffc8), then extended in
+/// place with the ISC-WF-1 workflow constructs (ruleset / use /
+/// override / languages / when, spec docs/isc-wf-1.md §2). The four
+/// new keywords join the keyword table; no corpus map uses them at
+/// bare-identifier positions, so the extension is parse-additive.
 pub const ISC_PARG: &str = include_str!("../grammar/isc.parg");
 
 fn compiled() -> &'static Grammar {

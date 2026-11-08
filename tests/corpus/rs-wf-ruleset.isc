@@ -1,0 +1,48 @@
+# ISC-WF-1 W1: named rulesets — bare use, recursive use (a ruleset
+# using another), pass-structure inheritance (a ruleset's parallel
+# block stays one pass at the use position), funcall pass-through, and
+# use inside a parallel block (the expansion flattens into the
+# enclosing pass, §3.2). Expectations verified by construction against
+# the spec and pinned here; the selected-language paths live in
+# tests/wf1.rs.
+
+system "T:rs-wf-ruleset:1" {
+  ruleset vowels {
+    sub "a" "A"
+    sub "e" "E"
+  }
+  ruleset vowels_plus {
+    use vowels
+    sub "i" "I"
+  }
+  ruleset blocky {
+    parallel {
+      sub "k" "K"
+      sub "kk" "KK"
+    }
+  }
+  ruleset with_fun {
+    parallel {
+      sub "s" "S"
+    }
+    upcase
+  }
+  stage main {
+    use vowels_plus
+    use blocky
+    sub "x" "X"
+  }
+  stage fun {
+    use with_fun
+  }
+  stage flat {
+    parallel {
+      use blocky
+      sub "p" "P"
+    }
+  }
+  tests {
+    "aeikx" -> "AEIKX"
+    "kk" -> "KK"
+  }
+}

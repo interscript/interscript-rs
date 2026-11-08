@@ -26,6 +26,13 @@ executes the standard map subset end-to-end:
 - alias/dependency resolution: unaliased dependencies are library
   imports (aliases merge into scope); aliased dependencies are
   stage-run targets (`run map.<dep>.stage.<stage>`),
+- ISC-WF-1 workflow extension (docs/isc-wf-1.md): W1 named rulesets
+  (`ruleset` / `use`, load-time recursive expansion, cycles are load
+  errors), W2 `use <ident> [alias.<ruleset>] override { ... }`
+  (child-wins on exact from-equality, kept-in-order then overrides),
+  and W3 language conditioning (`languages` declaration, `when`
+  guards, `transliterate_lang` / CLI `--language`; guards inert
+  without a selection, guard-applicable beats unguarded same-from),
 - embedded per-map tests, and the stage funcalls `upcase`, `downcase`,
   `title_case` (with `word_separator:` kwarg), `separate`,
   `compose` / `decompose` (NFC / NFD).
@@ -43,8 +50,10 @@ src/stdlib.rs         Stdlib parity: primitives, boundary, funcalls
 src/interpreter.rs    backtracking matcher + stage executor
 src/locate.rs         map resolution over the load path
 src/bin/iscrs.rs      CLI
-tests/corpus/         vendored semantics maps (Ruby-verified expectations)
+tests/corpus/         vendored semantics maps (Ruby-verified expectations;
+                      rs-wf-*.isc pin the ISC-WF-1 constructs)
 tests/semantics.rs    semantics suite
+tests/wf1.rs          ISC-WF-1 suite (expansion/merge/guard semantics)
 tests/corpus_sweep.rs corpus integration (sibling maps checkout)
 ```
 
@@ -66,15 +75,19 @@ see that file).
 
 `grammar/isc.parg` is copied verbatim from
 `interscript/interscript-ruby@34bd8829` `grammar/isc.parg` (WO13
-commit `873caf2`, blob `c9d4ffc8`). It is the canonical grammar the
-Ruby runtime ships; do not edit it here — upstream changes re-vendor
-from the Ruby repo. The embedded `test isc { accept ... reject ... }`
+commit `873caf2`, blob `c9d4ffc8`), then extended in place with the
+ISC-WF-1 constructs (ruleset / use / override / languages / when,
+spec `docs/isc-wf-1.md` in the maps repo). The extension is
+parse-additive: no corpus map uses the four new keywords at bare
+identifier positions, verified against the 404-map corpus. The
+embedded `test isc { accept ... reject ... }`
 suite runs under `iscrs grammar-test` and in `cargo test`.
 
 ## CLI
 
 ```
-iscrs transliterate <map_id> <string> [--stage NAME]   # Interscript.transliterate parity
+iscrs transliterate <map_id> <string> [--stage NAME] [--language LANG]
+                                                       # Interscript.transliterate parity
 iscrs reverse <map_id> <string> [--stage NAME]         # run the reversed document (Document#reverse)
 iscrs test <map_id>...                                 # run embedded tests
 iscrs test-all [--root DIR] [--limit N] [--json]       # corpus sweep

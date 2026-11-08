@@ -59,6 +59,12 @@ pub fn reverse_document(doc: &Document) -> Result<Document> {
     for (name, stage) in &doc.stages {
         stages.insert(name.clone(), reverse_stage(stage)?);
     }
+    // ISC-WF-1 W1: rulesets reverse like stages (they only matter if a
+    // dependent map splices them after reversing the dependency).
+    let mut rulesets = BTreeMap::new();
+    for (name, stage) in &doc.rulesets {
+        rulesets.insert(name.clone(), reverse_stage(stage)?);
+    }
     let mut dep_aliases = BTreeMap::new();
     for (alias, dep) in &doc.dep_aliases {
         dep_aliases.insert(alias.clone(), Rc::new(reverse_document(dep)?));
@@ -72,6 +78,7 @@ pub fn reverse_document(doc: &Document) -> Result<Document> {
         system_code: doc.system_code.clone(),
         aliases: doc.aliases.clone(),
         stages,
+        rulesets,
         dep_aliases,
         imports,
         // Tests#reverse: swap (from, to) per row (the ISC model has no
@@ -86,6 +93,8 @@ pub fn reverse_document(doc: &Document) -> Result<Document> {
         },
         // MetaData#reverse swaps source_script/destination_script.
         metadata: reverse_metadata(&doc.metadata),
+        // ISC-WF-1 W3: language declarations are surface-independent.
+        languages: doc.languages.clone(),
     })
 }
 
@@ -219,6 +228,9 @@ pub fn reverse_sub(sub: &Sub) -> Result<Sub> {
         to: xto,
         group_count: 0,
         reverse_run: rrun,
+        // ISC-WF-1 W3: guards carry over unchanged — the language
+        // selection filters the same rows on either surface.
+        when: sub.when.clone(),
     };
     // Regexp-order group numbering over the reversed rule — the same
     // walk `build_regexp` performs in Ruby. Refs keep their numbers.
