@@ -1,0 +1,74 @@
+# ISC-WF-1 W2: use with override across a dependency (the ALA-LC
+# pattern, §8.1). Child wins on exact from-equality (§4.2): the base
+# k row is REPLACED, not re-substituted after the pass; override rows
+# matching nothing are simply added; kept rows stay in the base's
+# order with the overrides appended (§4.2 rule 2).
+
+system "T:rs-wf-override:1" {
+  dependency "rs-wf-override-dep" as shared
+  ruleset dup {
+    sequence {
+      sub "s" "1"
+      sub "s" "2"
+    }
+  }
+  ruleset seqdup {
+    sequence {
+      sub "ab" "X"
+      sub "b" "Y"
+    }
+  }
+  ruleset guarded_base {
+    parallel {
+      sub "k" "q"
+    }
+  }
+  stage main {
+    use shared.base override {
+      sub "k" "k"      # the 2011 guide differs from the shared base here
+      sub "c" "c"      # matches nothing in the base — simply added
+    }
+  }
+  # §4.2 rule 1: multiple R rules sharing the overridden from ALL drop
+  # (the ruleset's internal last-wins winner is superseded too).
+  stage dup {
+    use dup override {
+      sub "s" "S"
+    }
+  }
+  # §4.2 rule 2 in a sequence context: kept rows keep R's order, the
+  # overrides run after them.
+  stage seq {
+    use seqdup override {
+      sub "ab" "AB"
+    }
+  }
+  # §4.2 rule 3 / §5.3: an override row is complete and may carry its
+  # own when guard, which applies to that row alone — the imported row
+  # does not survive replacement.
+  stage lang {
+    use guarded_base override {
+      sub "k" "kk" when kur
+    }
+  }
+  # Amended §4.2.6: override rows join the expansion's TRAILING
+  # parallel block; when the expansion does not end with one (here a
+  # funcall follows), they append as stage-level rows after it.
+  ruleset ends_parallel {
+    parallel {
+      sub "a" "1"
+    }
+  }
+  ruleset ends_parallel_then_fun {
+    use ends_parallel
+    downcase
+  }
+  stage tailjoin {
+    use ends_parallel_then_fun override {
+      sub "q" "Q"
+    }
+  }
+  tests {
+    "khtk" -> "xtk"
+  }
+}

@@ -1,0 +1,13 @@
+# ISC-WF-1 W1 library: named rulesets only, no stages — a ruleset is
+# never executed on its own (§3.2); it exists to be spliced by `use`
+# in a dependent map (§3.3: declared dependencies only).
+
+system "T:rs-wf-override-dep:1" {
+  ruleset base {
+    parallel {
+      sub "k" "q"
+      sub "kh" "x"
+      sub "t" "t"
+    }
+  }
+}

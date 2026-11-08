@@ -26,7 +26,7 @@ use crate::error::{Error, Result};
 use crate::item::Item;
 use crate::stdlib::Prim;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -104,15 +104,34 @@ impl Runtime {
 
     /// `Interscript.transliterate(map_id, string)`.
     pub fn transliterate(&self, map_id: &str, input: &str) -> Result<String> {
-        self.transliterate_stage(map_id, "main", input)
+        self.transliterate_stage(map_id, "main", input, None)
     }
 
-    pub fn transliterate_stage(&self, map_id: &str, stage: &str, input: &str) -> Result<String> {
+    /// ISC-WF-1 W3: transliterate with a language selection (§5.1).
+    /// Selecting a language the map does not declare behaves like no
+    /// selection (every `when` guard inert).
+    pub fn transliterate_lang(
+        &self,
+        map_id: &str,
+        input: &str,
+        language: Option<&str>,
+    ) -> Result<String> {
+        self.transliterate_stage(map_id, "main", input, language)
+    }
+
+    pub fn transliterate_stage(
+        &self,
+        map_id: &str,
+        stage: &str,
+        input: &str,
+        language: Option<&str>,
+    ) -> Result<String> {
         let doc = self.load(map_id)?;
-        execute_stage(&doc, stage, input)
+        execute_stage(&doc, stage, input, language)
     }
 
     /// Run a document's embedded tests; returns (passed, failed, failures).
+    /// Embedded tests run WITHOUT a language selection (§5.1 default).
     pub fn run_tests(&self, map_id: &str) -> Result<(usize, usize, Vec<String>)> {
         let doc = self.load(map_id)?;
         let mut passed = 0usize;
@@ -140,11 +159,49 @@ impl Runtime {
 // ----------------------------------------------------------------------
 
 /// Public alias for diagnostics and tests.
-pub fn execute_stage_pub(doc: &Document, stage_name: &str, input: &str) -> Result<String> {
-    execute_stage(doc, stage_name, input)
+pub fn execute_stage_pub(
+    doc: &Document,
+    stage_name: &str,
+    input: &str,
+    language: Option<&str>,
+) -> Result<String> {
+    execute_stage(doc, stage_name, input, language)
 }
 
-fn execute_stage(doc: &Document, stage_name: &str, input: &str) -> Result<String> {
+/// W3 (§5.2) pass filtering: the applicable rule set = unguarded rules
+/// ∪ guarded rules whose `when` matches the selected language — and a
+/// guard-applicable rule BEATS an unguarded rule with the same from
+/// (a language-specific value overrides the generic value without
+/// restating the generic row). With no selection every guard is inert,
+/// so this reduces to the unguarded set (§5.1).
+fn guard_filter<'a>(rules: &[&'a Sub], language: Option<&str>) -> Vec<&'a Sub> {
+    let applicable: Vec<&Sub> = rules
+        .iter()
+        .copied()
+        .filter(|r| r.guard_applies(language))
+        .collect();
+    let guarded_froms: BTreeSet<String> = applicable
+        .iter()
+        .filter(|r| !r.when.is_empty())
+        .map(|r| r.from_key())
+        .collect();
+    if guarded_froms.is_empty() {
+        return applicable;
+    }
+    // Guarded rows always stay; an UNGUARDED row drops when an
+    // applicable guarded row shares its from (§5.2 precedence).
+    applicable
+        .into_iter()
+        .filter(|r| !r.when.is_empty() || !guarded_froms.contains(&r.from_key()))
+        .collect()
+}
+
+fn execute_stage(
+    doc: &Document,
+    stage_name: &str,
+    input: &str,
+    language: Option<&str>,
+) -> Result<String> {
     let stage = doc
         .imported_stages()
         .remove(stage_name)
@@ -166,11 +223,16 @@ fn execute_stage(doc: &Document, stage_name: &str, input: &str) -> Result<String
             continue;
         }
         s = match item {
-            StageItem::Parallel(rules) => apply_parallel(doc, rules, &s)?,
+            StageItem::Parallel(rules) => apply_parallel(doc, rules, &s, language)?,
             StageItem::Sequential(rules) => {
                 let mut out = s;
                 for rule in rules {
                     if rule.reverse_run == Some(true) {
+                        continue;
+                    }
+                    // W3 §5.2: a guarded rule whose guard is inert is
+                    // skipped entirely (behaves as if absent).
+                    if !rule.guard_applies(language) {
                         continue;
                     }
                     out = apply_sub(doc, rule, &out)?;
@@ -182,9 +244,12 @@ fn execute_stage(doc: &Document, stage_name: &str, input: &str) -> Result<String
                     let dep_doc = doc.dep_aliases.get(alias).ok_or_else(|| {
                         Error::MapLogic(format!("dep alias {alias:?} not found in {}", doc.name))
                     })?;
-                    execute_stage(dep_doc, stage, &s)?
+                    // W3 §5.3: the selection threads into dependency
+                    // stage runs (each document's own declaration
+                    // gates its guards).
+                    execute_stage(dep_doc, stage, &s, language)?
                 }
-                None => execute_stage(doc, stage, &s)?,
+                None => execute_stage(doc, stage, &s, language)?,
             },
             StageItem::Funcall(funcall) => funcall.name.apply(s, &funcall.kwargs)?,
         };
@@ -201,21 +266,24 @@ fn execute_stage(doc: &Document, stage_name: &str, input: &str) -> Result<String
 /// * megaregexp path (the rescue fallback): rules tried in
 ///   `deterministic_sort_by_max_length` order (-max_length*100000+idx),
 ///   first match wins.
-fn apply_parallel(doc: &Document, rules: &[Sub], s: &str) -> Result<String> {
+fn apply_parallel(doc: &Document, rules: &[Sub], s: &str, language: Option<&str>) -> Result<String> {
     // Ruby: `next if i.reverse_run == true` in both the tree and the
     // megaregexp branch — skipped rules join neither array.
     let live: Vec<&Sub> = rules
         .iter()
         .filter(|r| r.reverse_run != Some(true))
         .collect();
-    if let Some(tree) = build_tree(&live, doc)? {
+    // W3 §5.2: the pass runs over the language-applicable set, with
+    // guard-applicable beating unguarded same-from.
+    let applicable = guard_filter(&live, language);
+    if let Some(tree) = build_tree(&applicable, doc)? {
         return tree_replace(&tree, s);
     }
 
     let chars: Vec<char> = s.chars().collect();
     // deterministic_sort_by_max_length: -max_length * 100000 + idx.
-    let mut order: Vec<usize> = (0..live.len()).collect();
-    order.sort_by_key(|&i| (std::cmp::Reverse(live[i].max_length()), i));
+    let mut order: Vec<usize> = (0..applicable.len()).collect();
+    order.sort_by_key(|&i| (std::cmp::Reverse(applicable[i].max_length()), i));
 
     let mut out = String::with_capacity(s.len());
     let mut copied = 0usize; // chars[..copied] are already emitted
@@ -223,7 +291,7 @@ fn apply_parallel(doc: &Document, rules: &[Sub], s: &str) -> Result<String> {
     while pos < chars.len() {
         let mut matched: Option<(usize, String)> = None;
         for &i in &order {
-            let rule = live[i];
+            let rule = applicable[i];
             let m = Matcher::new(&chars, doc);
             if let Some((end, replacement)) = m.match_rule(rule, pos)? {
                 matched = Some((end, replacement));

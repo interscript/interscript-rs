@@ -23,7 +23,7 @@ fn reverse_run(map_id: &str, input: &str) -> String {
     let rt = Runtime::new(reverse_maps());
     let doc = rt.load(map_id).expect("map loads");
     let reversed = interscript_rs::reverse::reverse_document(&doc).expect("reverse");
-    execute_stage_pub(&reversed, "main", input).expect("reverse stage executes")
+    execute_stage_pub(&reversed, "main", input, None).expect("reverse stage executes")
 }
 
 #[test]

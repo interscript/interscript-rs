@@ -1,0 +1,28 @@
+# ISC-WF-1 W3: language conditioning (the ISO 9 pattern, §5.4).
+# Embedded tests run with NO selection: every guard is inert and the
+# map behaves exactly as if the guarded rows were absent. The
+# selected-language paths are pinned in tests/wf1.rs (Runtime
+# transliterate_lang / CLI --language).
+
+system "T:rs-wf-languages:1" {
+  languages kur chv
+  stage main {
+    parallel {
+      sub "қ" "ķ"            # generic
+      sub "қ" "k̦" when kur   # Kurdish tradition — beats the generic row
+      sub "ҫ" "ş"            # generic
+      sub "ҫ" "ș" when chv   # Chuvash tradition
+    }
+  }
+  # §5.2: sequence blocks apply their rules in order; a guarded rule
+  # whose guard is inert is skipped entirely.
+  stage seqguards {
+    sequence {
+      sub "k" "K" when kur
+      sub "k" "Q"
+    }
+  }
+  tests {
+    "қҫ" -> "ķş"
+  }
+}
