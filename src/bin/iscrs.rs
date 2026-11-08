@@ -49,6 +49,7 @@ fn usage() -> String {
   parse <file-or-dir>...
   parse-all [--root DIR]
   maps-fetch <version> [--dest DIR]   # fetch + verify + unpack the maps corpus release
+  capture [-o FILE] [--root DIR]      # golden transliteration capture (jsonl)
   grammar-test
   infer <artifact_zip_or_model_id> <string> [--max-len N]
   conformance <fixture_file_or_dir> [<artifact_dir>]
@@ -102,6 +103,9 @@ fn run(args: &[String]) -> Result<(), CliError> {
             // maps-fetch takes its own --dest; pass it through to the
             // subcommand parser as positionals.
             "--dest" => positional.push("--dest".into()),
+            // capture takes its own -o/--root; pass through to the
+            // subcommand parser as positionals.
+            "-o" | "--root" => positional.push(arg.clone()),
             other if other.starts_with("--") => {
                 return Err(CliError::Usage(format!("unknown option {other}")));
             }
@@ -119,6 +123,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
         "infer" => return cmd_infer(rest, max_len).map_err(CliError::from),
         "conformance" => return cmd_conformance(rest).map_err(CliError::from),
         "maps-fetch" => return cmd_maps_fetch(rest).map_err(CliError::Usage),
+        "capture" => return cmd_capture(rest).map_err(CliError::Usage),
         _ => {}
     }
 
@@ -547,4 +552,78 @@ fn cmd_maps_fetch(rest: &[String]) -> Result<(), String> {
     println!("fetched maps {version} -> {}", maps_dir.display());
     println!("load path: iscrs --maps {} --maps {} ...", maps_dir.display(), dest.join("libs").display());
     Ok(())
+}
+
+/// `iscrs capture [-o FILE] [--root DIR]` — golden transliteration
+/// capture: one jsonl row per embedded-test input across the corpus,
+/// recording the runtime's actual output. The additivity baseline for
+/// ISC-WF-1 (WO16): after a runtime change, re-run and diff — zero
+/// delta on non-adopting maps is the merge gate.
+fn cmd_capture(rest: &[String]) -> Result<(), String> {
+    use std::io::Write as _;
+
+    let mut out_path = std::path::PathBuf::from("golden.jsonl");
+    let mut root = std::path::PathBuf::from("../maps/maps");
+    let mut it = rest.iter();
+    while let Some(arg) = it.next() {
+        match arg.as_str() {
+            "-o" => {
+                out_path = std::path::PathBuf::from(
+                    it.next().ok_or("capture: -o needs a value")?,
+                )
+            }
+            "--root" => {
+                root = std::path::PathBuf::from(
+                    it.next().ok_or("capture: --root needs a value")?,
+                )
+            }
+            other => return Err(format!("capture: unknown argument {other}")),
+        }
+    }
+
+    let maps = list_isc(&root);
+    let rt = Runtime::new(load_path_for_root(&root));
+    let mut rows = 0usize;
+    let mut load_errors = 0usize;
+    let mut w = std::io::BufWriter::new(
+        std::fs::File::create(&out_path).map_err(|e| e.to_string())?,
+    );
+    for path in &maps {
+        let map_id = path.file_stem().unwrap().to_string_lossy().to_string();
+        let doc = match rt.load(&map_id) {
+            Ok(d) => d,
+            Err(_) => {
+                load_errors += 1;
+                continue;
+            }
+        };
+        for (input, _) in &doc.tests.data {
+            let map_json = serde_json::to_string(&map_id).unwrap_or_else(|_| "null".into());
+            let src_json = serde_json::to_string(input).unwrap_or_else(|_| "null".into());
+            let out_json = match rt.transliterate(&map_id, input) {
+                Ok(v) => serde_json::to_string(&v).unwrap_or_else(|_| "null".into()),
+                Err(_) => "null".into(),
+            };
+            let _ = write!(w, "{{\"map\":{map_json},\"src\":{src_json},\"out\":{out_json}}}\n");
+            rows += 1;
+        }
+    }
+    w.flush().map_err(|e| e.to_string())?;
+    println!(
+        "captured {rows} rows from {} maps ({load_errors} load errors) -> {}",
+        maps.len(),
+        out_path.display()
+    );
+    Ok(())
+}
+
+fn load_path_for_root(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut lp = vec![root.to_path_buf()];
+    if let Some(parent) = root.parent() {
+        let libs = parent.join("libs");
+        if libs.is_dir() {
+            lp.push(libs);
+        }
+    }
+    lp
 }

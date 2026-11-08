@@ -1,0 +1,3 @@
+# Maps adopting ISC-WF-1 constructs (ruleset/use/override/languages/when).
+# Their golden rows are exempt from the additivity gate.
+# Empty until the first pilot lands.
