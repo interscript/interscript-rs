@@ -195,10 +195,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
             }
         }
         "test-all" => {
-            let root = rest
-                .first()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("../maps/maps"));
+            let root = root_from_rest(rest)?;
             let maps = list_isc(&root);
             let rt = Runtime::new(load_path);
             let mut maps_with_tests = 0usize;
@@ -301,10 +298,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
             }
         }
         "parse-all" => {
-            let root = rest
-                .first()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("../maps/maps"));
+            let root = root_from_rest(rest)?;
             let mut files = Vec::new();
             collect_isc(&root, &mut files);
             files.sort();
@@ -351,6 +345,25 @@ fn list_isc(root: &Path) -> Vec<PathBuf> {
     collect_isc(root, &mut out);
     out.sort();
     out
+}
+
+/// Corpus root for the sweep commands: `--root DIR` (value follows the
+/// flag anywhere in rest) or the bare positional fallback, else the
+/// documented default.
+fn root_from_rest(rest: &[String]) -> Result<PathBuf, CliError> {
+    let mut root: Option<PathBuf> = None;
+    let mut iter = rest.iter();
+    while let Some(arg) = iter.next() {
+        if arg == "--root" {
+            let v = iter
+                .next()
+                .ok_or_else(|| CliError::Usage("--root needs a value".into()))?;
+            root = Some(PathBuf::from(v));
+        } else if root.is_none() && !arg.starts_with('-') {
+            root = Some(PathBuf::from(arg));
+        }
+    }
+    Ok(root.unwrap_or_else(|| PathBuf::from("../maps/maps")))
 }
 
 // ----------------------------------------------------------------------
