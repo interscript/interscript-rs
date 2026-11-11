@@ -24,5 +24,16 @@ jobs:
       - name: Exchange OIDC for a short-lived crates.io token
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
+      # parsanol carries a local path + version dual spec for dev; the
+      # path is the maintainer's machine and does not exist on runners.
+      # cargo package's verification build resolves it from the path,
+      # so publishing from CI must first rewrite the dep to its crates.io
+      # version requirement and prove the published form builds.
+      - name: Verify the published form builds (path -> version dep)
+        run: |
+          sed -i.bak -E 's/\{ path = "[^"]*", version = /{ version = /' Cargo.toml
+          rm Cargo.toml.bak
+          grep -n 'parsanol = ' Cargo.toml
+          cargo build --release
       - name: Publish to crates.io
         run: cargo publish --token ${{ steps.auth.outputs.token }}
