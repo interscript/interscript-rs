@@ -617,7 +617,10 @@ fn cmd_capture(rest: &[String]) -> Result<(), String> {
         let map_id = path.file_stem().unwrap().to_string_lossy().to_string();
         let doc = match rt.load(&map_id) {
             Ok(d) => d,
-            Err(_) => {
+            Err(e) => {
+                // A load error must be visible: silent counting hid the
+                // failing map entirely (WO17 follow-up).
+                eprintln!("load error: {map_id}: {e}");
                 load_errors += 1;
                 continue;
             }
