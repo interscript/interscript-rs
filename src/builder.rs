@@ -94,6 +94,19 @@ pub fn build(
         }
     }
 
+    // A ruleset declared twice is a load error (the py canon): both
+    // first-wins and order-dependent merges silently pick a body.
+    {
+        let mut seen = BTreeSet::new();
+        for (name, _) in &ruleset_nodes {
+            if !seen.insert(name.clone()) {
+                return Err(Error::MapLogic(format!(
+                    "ruleset {name:?} declared more than once in {filename_stem}"
+                )));
+            }
+        }
+    }
+
     // Conversion context: local raws + imported alias items
     // (NodeAdapter @local_raw / @imported).
     let ctx = Ctx {

@@ -139,6 +139,26 @@ fn self_use_cycle_is_a_load_error() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// A ruleset declared twice is a load error (py is the canon —
+/// first-wins and order-dependent merges both silently pick a body).
+#[test]
+fn duplicate_ruleset_is_a_load_error() {
+    let dir = std::env::temp_dir().join(format!("iscrs-dup-rs-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("dup.isc"),
+        "system \"T:dup:1\" { ruleset a { sub \"x\" \"1\" } ruleset a { sub \"x\" \"2\" } stage main { use a } }\n",
+    )
+    .unwrap();
+    let runtime = Runtime::new(vec![dir.clone()]);
+    let err = runtime.transliterate("dup", "x").err().expect("duplicate must not load");
+    assert!(
+        matches!(err, Error::MapLogic(ref m) if m.contains("ruleset \"a\" declared")),
+        "got {err:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// `use` of an undeclared ruleset is a load error.
 #[test]
 fn unknown_ruleset_is_a_load_error() {
