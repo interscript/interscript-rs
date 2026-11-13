@@ -103,6 +103,22 @@ fn document_carries_expanded_rulesets_and_languages() {
     assert_eq!(lang_doc.languages, vec!["kur".to_string(), "chv".to_string()]);
 }
 
+/// Languages + declaration order, deduped; a `ruleset` block head
+/// directly after a languages list must parse (the ident-list guard
+/// stops at any block head — `ruleset` included).
+#[test]
+fn ruleset_after_languages_decl_parses() {
+    let dir = std::env::temp_dir().join(format!("iscrs-langs-rs-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("langrs.isc"),
+        "system \"T:langrs:1\" {\n languages kur\n ruleset r1 { sequence { sub \"s\" \"1\" } }\n stage main { use r1 }\n}\n",
+    )
+    .unwrap();
+    let runtime = Runtime::new(vec![dir.clone()]);
+    assert_eq!(runtime.transliterate("langrs", "ss").unwrap(), "11");
+}
+
 /// Expansion cycle: a bare `use` chain revisiting a ruleset is a load
 /// error (§3.2, §6.4).
 #[test]
