@@ -116,10 +116,13 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   # by the parg compiler's shadow lint: "any_character" must precede
   # "any" (longest-first). Semantically identical — keyword is used
   # only under negative lookahead, where any matching branch suffices.
-  # ISC-WF-1: the four workflow keywords join the table (spec §2).
-  # `ruleset` deliberately stays OUT (§2 lists exactly these four); it
-  # is a block head like `relations`, which also is not a keyword.
-  keyword = ("parallel" / "sequence" / "stage" / "compose" / "separate" / "system" / "metadata" / "aliases" / "tests" / "notes" / "description" / "name" / "authority" / "dependency" / "run" / "sub" / "before" / "after" / "not_before" / "not_after" / "any_character" / "any" / "none" / "boundary" / "line_start" / "line_end" / "word_boundary" / "downcase" / "upcase" / "title_case" / "capture" / "maybe" / "some" / "ref" / "use" / "override" / "languages" / "when")
+  # ISC-WF-1: the workflow keywords join the table (spec §2). `ruleset`
+  # joins too: it is a block head, and the `!(keyword)` guards on the
+  # ident lists (languages_decl / when_clause / alias_reference /
+  # alias_arg) rely on every sibling block head being a keyword —
+  # otherwise `languages kur ruleset r1 {...}` parses the ruleset head
+  # as a language ident and dies at its brace.
+  keyword = ("parallel" / "sequence" / "stage" / "compose" / "separate" / "system" / "metadata" / "aliases" / "tests" / "notes" / "description" / "name" / "authority" / "dependency" / "run" / "sub" / "before" / "after" / "not_before" / "not_after" / "any_character" / "any" / "none" / "boundary" / "line_start" / "line_end" / "word_boundary" / "downcase" / "upcase" / "title_case" / "capture" / "maybe" / "some" / "ref" / "use" / "override" / "languages" / "when" / "ruleset")
 
   # rule(:zero_width_primitive)
   zw_primitive = (("boundary" / "line_start" / "line_end" / "word_boundary" / "space" / "non_boundary")) as primitive
