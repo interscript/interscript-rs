@@ -45,7 +45,10 @@ system "T:rs-wf-override:1" {
   }
   # §4.2 rule 3 / §5.3: an override row is complete and may carry its
   # own when guard, which applies to that row alone — the imported row
-  # does not survive replacement.
+  # does not survive replacement. (The declaration sits here rather
+  # than above the rulesets: grammar bug — `ruleset` is missing from
+  # the keyword guard, so `languages kur ruleset ...` misparses.)
+  languages kur
   stage lang {
     use guarded_base override {
       sub "k" "kk" when kur

@@ -317,6 +317,39 @@ fn undeclared_selection_is_like_no_selection() {
     );
 }
 
+/// §5.1: guards on a map with NO `languages` declaration are inert
+/// under any selection — nothing is selectable.
+#[test]
+fn no_declaration_selection_activates_nothing() {
+    let runtime = rt();
+    assert_eq!(
+        runtime
+            .transliterate_lang("rs-wf-nodecl", "қ", Some("kur"))
+            .unwrap(),
+        "ķ"
+    );
+}
+
+/// §5.1: a `when` guard whose language is outside the declared set
+/// stays inert even when that exact language is selected; the
+/// declared guard still fires.
+#[test]
+fn guard_outside_declared_set_is_inert() {
+    let runtime = rt();
+    assert_eq!(
+        runtime
+            .transliterate_lang("rs-wf-subset", "қ", Some("kur"))
+            .unwrap(),
+        "k̦"
+    );
+    assert_eq!(
+        runtime
+            .transliterate_lang("rs-wf-subset", "қ", Some("rus"))
+            .unwrap(),
+        "ķ"
+    );
+}
+
 /// §5.2: sequence blocks apply their rules in order; a guarded rule
 /// whose guard is inert is skipped entirely (so with no selection the
 /// generic row fires, and with kur the guarded row consumes the match

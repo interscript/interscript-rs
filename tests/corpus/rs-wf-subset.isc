@@ -1,0 +1,17 @@
+# ISC-WF-1 W3: a `when` guard OUTSIDE the declared set (§5.1).
+# The map declares `kur` only; the `when rus` row must stay inert even
+# under `--language rus` (an undeclared selection is like no selection).
+
+system "T:rs-wf-subset:1" {
+  languages kur
+  stage main {
+    parallel {
+      sub "қ" "ķ"            # generic
+      sub "қ" "k̦" when kur   # declared: fires under --language kur
+      sub "қ" "ӄ" when rus   # undeclared: must NEVER fire
+    }
+  }
+  tests {
+    "қ" -> "ķ"
+  }
+}

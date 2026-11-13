@@ -202,6 +202,11 @@ fn execute_stage(
     input: &str,
     language: Option<&str>,
 ) -> Result<String> {
+    // W3 §5.1: the selection is honored only if this document declares
+    // it — an undeclared selection is like no selection, and every
+    // guard stays inert. Re-checked per document (§5.3: each doc
+    // gates on its own declaration).
+    let language = language.filter(|l| doc.languages.iter().any(|d| d == l));
     let stage = doc
         .imported_stages()
         .remove(stage_name)
