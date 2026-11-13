@@ -1,0 +1,16 @@
+# ISC-WF-1 W3: guards WITHOUT a `languages` declaration (§5.1).
+# Nothing is selectable, so every guard is inert under ANY selection —
+# the map behaves as if the guarded rows were absent. Pinned in
+# tests/wf1.rs (undeclared_selection paths).
+
+system "T:rs-wf-nodecl:1" {
+  stage main {
+    parallel {
+      sub "қ" "ķ"            # generic
+      sub "қ" "k̦" when kur   # must NEVER fire: kur is not declared
+    }
+  }
+  tests {
+    "қ" -> "ķ"
+  }
+}

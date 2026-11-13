@@ -61,10 +61,11 @@ impl Sub {
         format!("{:?}", self.from)
     }
 
-    /// W3 applicability: unguarded rules always apply; a guarded rule
-    /// applies only when the caller selected one of its languages
-    /// (§5.1 — no selection, or an undeclared selection, leaves every
-    /// guard inert).
+    /// W3 rule-level applicability: unguarded rules always apply; a
+    /// guarded rule applies only when the selection matches one of its
+    /// `when` languages. The §5.1 declaration gate (the selection must
+    /// also be in `Document.languages`) is applied per document in
+    /// `execute_stage` before this is consulted.
     pub fn guard_applies(&self, language: Option<&str>) -> bool {
         self.when.is_empty()
             || language.is_some_and(|l| self.when.iter().any(|w| w == l))
