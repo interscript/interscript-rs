@@ -1,0 +1,14 @@
+# WO19 G6 keyword table — `downcase = any(...)` parses as an ALIAS
+# declaration (alias_decl has no keyword guard). The name is not
+# reachable via a bare reference (a bare fn name is a fn literal), so
+# the stage exercises only the declaration + parse.
+
+system "T:rs-g6-keyword:1" {
+  aliases { downcase = any("a".."z") }
+  stage main {
+    sub "k" "K"
+  }
+  tests {
+    "kak" -> "KaK"
+  }
+}

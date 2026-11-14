@@ -1,0 +1,15 @@
+# WO19 G6 — the reverse/strip/swapcase stage directives and `to`
+# funcalls execute with the plain String semantics of ruby
+# Stdlib::Functions (String#reverse / String#strip / String#swapcase).
+# One map per function: the embedded tests pin the composed result
+# (the sub rule fires first, then the whole-string directive).
+
+system "T:rs-g6-reverse:1" {
+  stage main {
+    sub "1" "2"
+    reverse
+  }
+  tests {
+    "abc1" -> "2cba"
+  }
+}

@@ -35,6 +35,15 @@ pub enum SubTo {
     Upcase,
     /// `to downcase` — downcase the whole match.
     Downcase,
+    /// WO19 G6: `to reverse` — reverse the whole match
+    /// (Ruby Stdlib::Functions.reverse = String#reverse).
+    Reverse,
+    /// WO19 G6: `to strip` — trim the whole match
+    /// (Ruby String#strip: the ASCII whitespace + NUL set, both ends).
+    Strip,
+    /// WO19 G6: `to swapcase` — swap the case of the whole match
+    /// (Ruby String#swapcase, full Unicode mapping).
+    Swapcase,
     /// A replacement item.
     Item(Item),
 }

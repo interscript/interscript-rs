@@ -1,0 +1,11 @@
+# WO19 G6 — a reverse fn literal as a `to` target: the match is
+# replaced with String#reverse of itself.
+
+system "T:rs-g6-revto:1" {
+  stage main {
+    sub "abc" reverse
+  }
+  tests {
+    "xabcy" -> "xcbay"
+  }
+}

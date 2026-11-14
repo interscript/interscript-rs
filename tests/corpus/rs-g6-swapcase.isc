@@ -1,0 +1,12 @@
+# WO19 G6 — the swapcase directive: ruby String#swapcase semantics
+# (full Unicode per-character case mapping).
+
+system "T:rs-g6-swapcase:1" {
+  stage main {
+    sub "a" "b"
+    swapcase
+  }
+  tests {
+    "aBc" -> "BbC"
+  }
+}

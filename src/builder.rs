@@ -246,6 +246,11 @@ impl<'a> Ctx<'a> {
                     "upcase" => FuncallName::Upcase,
                     "downcase" => FuncallName::Downcase,
                     "title_case" => FuncallName::TitleCase,
+                    // WO19 G6: the three new directives execute with the
+                    // plain String semantics of ruby Stdlib::Functions.
+                    "reverse" => FuncallName::Reverse,
+                    "strip" => FuncallName::Strip,
+                    "swapcase" => FuncallName::Swapcase,
                     other => return Err(Error::MapLogic(format!("unknown case op {other:?}"))),
                 };
                 let kwargs = pget(hash, "case_kwargs").map(extract_kwargs).unwrap_or_default();
@@ -421,11 +426,15 @@ impl<'a> Ctx<'a> {
             }
         }
 
-        // `to`: only upcase/downcase functions become SubTo targets
+        // `to`: the upcase/downcase functions plus the WO19 G6 trio
+        // (reverse/strip/swapcase) become SubTo targets
         // (Sub#initialize); other functions crash the Ruby adapter.
         let to_target = match &to {
             Item::Func(FuncName::Upcase) => SubTo::Upcase,
             Item::Func(FuncName::Downcase) => SubTo::Downcase,
+            Item::Func(FuncName::Reverse) => SubTo::Reverse,
+            Item::Func(FuncName::Strip) => SubTo::Strip,
+            Item::Func(FuncName::Swapcase) => SubTo::Swapcase,
             item => SubTo::Item(item.clone()),
         };
 
@@ -617,10 +626,17 @@ impl<'a> Ctx<'a> {
                     return match name.as_str() {
                         "upcase" => Ok(Item::Func(FuncName::Upcase)),
                         "downcase" => Ok(Item::Func(FuncName::Downcase)),
-                        // title_case/reverse/strip/swapcase as items are
-                        // not usable as `to` targets (Ruby adapter
-                        // raises); they can only appear inside any(...),
-                        // which the corpus does not exercise.
+                        // WO19 G6: the three new fn literals are usable
+                        // as `to` targets (SubTo dispatches them with the
+                        // plain String semantics of ruby
+                        // Stdlib::Functions).
+                        "reverse" => Ok(Item::Func(FuncName::Reverse)),
+                        "strip" => Ok(Item::Func(FuncName::Strip)),
+                        "swapcase" => Ok(Item::Func(FuncName::Swapcase)),
+                        // title_case as an item is not usable as a `to`
+                        // target (the Ruby adapter raises); it can only
+                        // appear inside any(...), which the corpus does
+                        // not exercise.
                         other => Err(Error::MapLogic(format!(
                             "function item {other:?} is not supported in this position"
                         ))),
