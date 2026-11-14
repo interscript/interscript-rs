@@ -24,7 +24,7 @@
 use crate::document::{Document, StageItem, Sub, SubTo};
 use crate::error::{Error, Result};
 use crate::item::Item;
-use crate::stdlib::Prim;
+use crate::stdlib::{ruby_strip_set, swapcase, Prim};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -348,11 +348,12 @@ fn build_tree(rules: &[&Sub], doc: &Document) -> Result<Option<TrieNode>> {
                 Ok(s) => s,
                 Err(_) => return Ok(None),
             },
-            // to upcase/downcase inside a parallel group has no
-            // build_item case (nil replacement) — Ruby silently
-            // skips nothing here; the tree hash gets nil, matching
-            // `Array(nil)` → no keys. Treat as skip.
+            // to upcase/downcase (and the WO19 G6 trio) inside a
+            // parallel group has no build_item case (nil replacement) —
+            // Ruby silently skips nothing here; the tree hash gets nil,
+            // matching `Array(nil)` → no keys. Treat as skip.
             SubTo::Upcase | SubTo::Downcase => String::new(),
+            SubTo::Reverse | SubTo::Strip | SubTo::Swapcase => String::new(),
         };
         let _ = to;
         match m.build_par_from(&rule.from) {
@@ -518,6 +519,18 @@ impl<'a> Matcher<'a> {
         let replacement = match &rule.to {
             SubTo::Upcase => self.chars[pos..end].iter().collect::<String>().to_uppercase(),
             SubTo::Downcase => self.chars[pos..end].iter().collect::<String>().to_lowercase(),
+            // WO19 G6: the three new fn-literal `to` targets — the
+            // plain String semantics of ruby Stdlib::Functions applied
+            // to the whole match.
+            SubTo::Reverse => {
+                self.chars[pos..end].iter().rev().collect::<String>()
+            }
+            SubTo::Strip => self.chars[pos..end]
+                .iter()
+                .collect::<String>()
+                .trim_matches(|c| ruby_strip_set(c))
+                .to_string(),
+            SubTo::Swapcase => swapcase(self.chars[pos..end].iter().collect::<String>()),
             SubTo::Item(to) => {
                 let collapsed = to.first_string();
                 let built = self.build_replacement(&collapsed)?;
@@ -940,8 +953,13 @@ impl<'a> Matcher<'a> {
             Item::CaptureRef(_) => Err(Error::MapLogic(
                 "Can't use CaptureRef in parallel mode".into(),
             )),
-            // Function items have no build_item case -> nil -> no keys.
-            Item::Func(_) => Ok(vec![]),
+            // WO19 G6: a fn literal in FROM position raised in Ruby
+            // (build_item's missing Function case) — it silently
+            // produced no keys here, dropping the whole rule from the
+            // parallel tree. Raise the named error instead.
+            Item::Func(_) => Err(Error::MapLogic(
+                "function item in from position".into(),
+            )),
         }
     }
 

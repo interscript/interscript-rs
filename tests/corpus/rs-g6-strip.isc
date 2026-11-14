@@ -1,0 +1,12 @@
+# WO19 G6 — the strip directive: ruby String#strip semantics (the
+# ASCII whitespace + NUL set, both ends).
+
+system "T:rs-g6-strip:1" {
+  stage main {
+    strip
+  }
+  tests {
+    "  x  " -> "x"
+    "\t y \n" -> "y"
+  }
+}

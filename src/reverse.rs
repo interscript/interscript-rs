@@ -178,9 +178,10 @@ fn reverse_stage_item(item: &StageItem) -> Result<StageItem> {
 /// `Stdlib.reverse_function`; kwargs carry over.
 fn reverse_funcall(funcall: &Funcall) -> Result<Funcall> {
     let name = funcall.name.reverse_name().ok_or_else(|| {
-        Error::Unsupported(
-            "funcall upcase has no reverse (the Ruby reverse_function map omits it)".into(),
-        )
+        Error::Unsupported(format!(
+            "funcall {} has no reverse (the Ruby reverse_function map omits it)",
+            funcall.name.as_name()
+        ))
     })?;
     Ok(Funcall {
         name,
@@ -196,6 +197,19 @@ pub fn reverse_sub(sub: &Sub) -> Result<Sub> {
         // (Item#downcase / Item#upcase parity, and vice versa).
         SubTo::Upcase => (item_downcase(&sub.from)?, SubTo::Downcase),
         SubTo::Downcase => (item_upcase(&sub.from)?, SubTo::Upcase),
+        // WO19 G6: the reverse_function map omits the trio (Ruby crashes
+        // on `Funcall#reverse` for them), so a reverse run over a rule
+        // carrying one raises instead of inventing an inverse.
+        SubTo::Reverse | SubTo::Strip | SubTo::Swapcase => {
+            return Err(Error::Unsupported(format!(
+                "fn literal {} has no reverse (the Ruby reverse_function map omits it)",
+                match &sub.to {
+                    SubTo::Reverse => "reverse",
+                    SubTo::Strip => "strip",
+                    _ => "swapcase",
+                }
+            )))
+        }
         SubTo::Item(to) => {
             let (f, t) = reverse_transfer(sub.from.clone(), to.clone())?;
             (f, SubTo::Item(t))

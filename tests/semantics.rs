@@ -197,3 +197,62 @@ fn dependency_cycle_detected() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// WO19 G6 item 2 — a fn literal in FROM position is a named
+/// MapLogicError, not a silently dropped rule. Ruby raises (canon);
+/// ts/py raise at compile; rs used to drop the rule from the parallel
+/// tree via the build_item nil case.
+#[test]
+fn fn_literal_in_from_is_a_named_error() {
+    let dir = std::env::temp_dir().join(format!("iscrs-g6-fnfrom-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    // Sequential form: the matcher path raises.
+    std::fs::write(
+        dir.join("g6-fnfrom-seq.isc"),
+        "system \"g6-fnfrom-seq\" { stage main { sub downcase \"X\" } }\n",
+    )
+    .unwrap();
+    // Parallel form: build_par's from-keys path (the former silent
+    // nil-drop) must raise instead of dropping the rule.
+    std::fs::write(
+        dir.join("g6-fnfrom-par.isc"),
+        "system \"g6-fnfrom-par\" { stage main { parallel { sub downcase \"X\" } } }\n",
+    )
+    .unwrap();
+    let runtime = Runtime::new(vec![dir.clone()]);
+    for id in ["g6-fnfrom-seq", "g6-fnfrom-par"] {
+        let err = runtime
+            .transliterate(id, "abc")
+            .err()
+            .unwrap_or_else(|| panic!("{id} must not run"));
+        let msg = err.to_string();
+        assert!(
+            msg.contains("function item"),
+            "{id}: expected a fn-literal named error, got {msg}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// WO19 G6 item 3 — the when-position probe from the audit: a `when`
+/// guard on a compact rule inside a parallel block binds to THAT rule
+/// (canonical rs; ruby verified identical).
+#[test]
+fn when_guard_on_parallel_row_binds_to_that_row() {
+    let dir = std::env::temp_dir().join(format!("iscrs-g6-when-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("g6-when.isc"),
+        "system \"g6-when\" {\n  languages kur\n  stage main {\n    parallel {\n      sub \"k\" \"K\" when kur\n      sub \"k\" \"q\"\n    }\n  }\n}\n",
+    )
+    .unwrap();
+    let runtime = Runtime::new(vec![dir.clone()]);
+    assert_eq!(
+        runtime
+            .transliterate_lang("g6-when", "kak", Some("kur"))
+            .unwrap(),
+        "KaK"
+    );
+    assert_eq!(runtime.transliterate("g6-when", "kak").unwrap(), "qaq");
+    std::fs::remove_dir_all(&dir).ok();
+}

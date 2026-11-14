@@ -40,6 +40,14 @@ pub enum Item {
 pub enum FuncName {
     Upcase,
     Downcase,
+    /// WO19 G6: the reverse fn literal as a `to` target
+    /// (Ruby Stdlib::Functions.reverse = String#reverse).
+    Reverse,
+    /// WO19 G6: the strip fn literal as a `to` target (Ruby String#strip).
+    Strip,
+    /// WO19 G6: the swapcase fn literal as a `to` target
+    /// (Ruby String#swapcase, full Unicode mapping).
+    Swapcase,
 }
 
 impl Item {

@@ -164,6 +164,14 @@ pub enum FuncallName {
     Upcase,
     Downcase,
     TitleCase,
+    /// WO19 G6: the `reverse` directive/fn literal
+    /// (Ruby Stdlib::Functions.reverse = String#reverse).
+    Reverse,
+    /// WO19 G6: the `strip` directive/fn literal (Ruby String#strip).
+    Strip,
+    /// WO19 G6: the `swapcase` directive/fn literal
+    /// (Ruby String#swapcase, full Unicode mapping).
+    Swapcase,
     Separate,
     Unseparate,
     Compose,
@@ -171,11 +179,30 @@ pub enum FuncallName {
 }
 
 impl FuncallName {
+    /// The ISC source spelling (error messages, reverse-run reports).
+    pub fn as_name(&self) -> &'static str {
+        match self {
+            FuncallName::Upcase => "upcase",
+            FuncallName::Downcase => "downcase",
+            FuncallName::TitleCase => "title_case",
+            FuncallName::Reverse => "reverse",
+            FuncallName::Strip => "strip",
+            FuncallName::Swapcase => "swapcase",
+            FuncallName::Separate => "separate",
+            FuncallName::Unseparate => "unseparate",
+            FuncallName::Compose => "compose",
+            FuncallName::Decompose => "decompose",
+        }
+    }
+
     pub fn from_name(name: &str) -> Option<FuncallName> {
         Some(match name {
             "upcase" => FuncallName::Upcase,
             "downcase" => FuncallName::Downcase,
             "title_case" => FuncallName::TitleCase,
+            "reverse" => FuncallName::Reverse,
+            "strip" => FuncallName::Strip,
+            "swapcase" => FuncallName::Swapcase,
             "separate" => FuncallName::Separate,
             "unseparate" => FuncallName::Unseparate,
             "compose" => FuncallName::Compose,
@@ -186,7 +213,10 @@ impl FuncallName {
 
     /// `Interscript::Stdlib.reverse_function`: the inverse funcall
     /// used by `Funcall#reverse`. `upcase` has no entry (the Ruby map
-    /// omits it, so reversing an upcase funcall crashes there).
+    /// omits it, so reversing an upcase funcall crashes there); the
+    /// WO19 G6 trio (reverse/strip/swapcase) is likewise absent from
+    /// the Ruby map, so a reverse run over a rule carrying one raises
+    /// here (mirroring the Ruby crash) instead of inventing an inverse.
     pub fn reverse_name(&self) -> Option<FuncallName> {
         Some(match self {
             FuncallName::TitleCase => FuncallName::Downcase, // best-effort per Ruby
@@ -196,6 +226,7 @@ impl FuncallName {
             FuncallName::Separate => FuncallName::Unseparate,
             FuncallName::Unseparate => FuncallName::Separate,
             FuncallName::Upcase => return None,
+            FuncallName::Reverse | FuncallName::Strip | FuncallName::Swapcase => return None,
         })
     }
 
@@ -211,6 +242,13 @@ impl FuncallName {
                 let sep = kw("word_separator").unwrap_or_else(|| " ".to_string());
                 Ok(title_case(s, &sep))
             }
+            // Ruby Stdlib::Functions.reverse / strip / swapcase — the
+            // plain String methods (WO19 G6 reference semantics).
+            FuncallName::Reverse => Ok(s.chars().rev().collect()),
+            FuncallName::Strip => Ok(s
+                .trim_matches(|c| ruby_strip_set(c))
+                .to_string()),
+            FuncallName::Swapcase => Ok(swapcase(s)),
             FuncallName::Separate => {
                 let sep = kw("separator").unwrap_or_else(|| " ".to_string());
                 let mut out = String::with_capacity(s.len() * 2);
@@ -231,6 +269,30 @@ impl FuncallName {
             FuncallName::Decompose => Ok(s.nfd().collect()),
         }
     }
+}
+
+/// Ruby `String#strip`'s whitespace definition: null, horizontal tab,
+/// line feed, vertical tab, form feed, carriage return, space (ASCII
+/// set only — NOT the full Unicode whitespace class Rust `trim` uses).
+pub fn ruby_strip_set(c: char) -> bool {
+    matches!(c, '\0' | '\t' | '\n' | '\u{0B}' | '\u{0C}' | '\r' | ' ')
+}
+
+/// Ruby `String#swapcase`: per character, upcase→downcase,
+/// downcase→upcase, else unchanged (full Unicode case mapping, matching
+/// Ruby's `String#upcase`/`#downcase` semantics — e.g. "ß" → "SS").
+pub fn swapcase(s: String) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_uppercase() {
+            out.extend(c.to_lowercase());
+        } else if c.is_lowercase() {
+            out.extend(c.to_uppercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// `Interscript::Stdlib::Functions.title_case`: `gsub(/^(.)/, &:upcase)`

@@ -122,7 +122,15 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   # alias_arg) rely on every sibling block head being a keyword —
   # otherwise `languages kur ruleset r1 {...}` parses the ruleset head
   # as a language ident and dies at its brace.
-  keyword = ("parallel" / "sequence" / "stage" / "compose" / "separate" / "system" / "metadata" / "aliases" / "tests" / "notes" / "description" / "name" / "authority" / "dependency" / "run" / "sub" / "before" / "after" / "not_before" / "not_after" / "any_character" / "any" / "none" / "boundary" / "line_start" / "line_end" / "word_boundary" / "downcase" / "upcase" / "title_case" / "capture" / "maybe" / "some" / "ref" / "use" / "override" / "languages" / "when" / "ruleset")
+  # WO19 G6: the six fn-literal names are reserved words (upcase/
+  # downcase/title_case were already here; reverse/strip/swapcase join).
+  # A bare fn name is never an alias reference or an alias(...) argument:
+  # item-position uses fn_lit (function capture). `downcase = any(...)`
+  # still declares an alias NAMED downcase (alias_decl has no keyword
+  # guard), matching the ruby concern grammar; the name is simply not
+  # reachable via a bare reference. Keyword is used only under negative
+  # lookahead, where any matching branch suffices.
+  keyword = ("parallel" / "sequence" / "stage" / "compose" / "separate" / "system" / "metadata" / "aliases" / "tests" / "notes" / "description" / "name" / "authority" / "dependency" / "run" / "sub" / "before" / "after" / "not_before" / "not_after" / "any_character" / "any" / "none" / "boundary" / "line_start" / "line_end" / "word_boundary" / "downcase" / "upcase" / "title_case" / "reverse" / "strip" / "swapcase" / "capture" / "maybe" / "some" / "ref" / "use" / "override" / "languages" / "when" / "ruleset")
 
   # rule(:zero_width_primitive)
   zw_primitive = (("boundary" / "line_start" / "line_end" / "word_boundary" / "space" / "non_boundary")) as primitive
@@ -227,10 +235,14 @@ grammar InterscriptIsc version "1.0.0" edition "v1" {
   # rule(:separate_directive)
   separate_directive = (("separate")) as separate [whitespace "separator" whitespace ((item_atom) as separator)]
 
-  # rule(:string_case_directive) — title_case takes optional kwargs
+  # rule(:string_case_directive) — title_case takes optional kwargs.
+  # WO19 G6: all six fn-literal names are stage DIRECTIVES. downcase/
+  # upcase keep the keywordless bare form; reverse/strip/swapcase join
+  # with plain String semantics as the reference (ruby
+  # Stdlib::Functions: String#reverse / String#strip / String#swapcase).
   kwarg = ((identifier) as kwarg_name) [whitespace] ":" [whitespace] ((quoted_string) as kwarg_value)
   kwarg_list = ((kwarg) as kwarg) 0*(("," [whitespace]) ((kwarg) as kwarg))
-  string_case_directive = (("downcase" / "upcase")) as case / (("title_case") as case [whitespace ((kwarg_list) as case_kwargs)])
+  string_case_directive = (("downcase" / "upcase" / "reverse" / "strip" / "swapcase")) as case / (("title_case") as case [whitespace ((kwarg_list) as case_kwargs)])
 
   # rule(:compose_directive)
   compose_directive = (("compose" / "decompose")) as compose
