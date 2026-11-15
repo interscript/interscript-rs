@@ -450,7 +450,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol"
-version = "0.19.8"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3dc5ca94c2545bfe02de8128249c5082e6a00390c0002f964d75879eb70d6e30"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -458,6 +460,7 @@ dependencies = [
  "hashbrown",
  "parsanol-derive",
  "regex",
+ "regex-automata",
  "regex-syntax",
  "serde",
  "serde_json",
@@ -466,7 +469,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol-derive"
-version = "0.19.8"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33a9a237d7840c219abd359aaa4dcb15ca40ee645f762d5cf1d6335c4bda2364"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -675,6 +680,8 @@ version = "1.0.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
 dependencies = [
+ "foldhash",
+ "indexmap",
  "itoa",
  "memchr",
  "serde",
