@@ -1,6 +1,6 @@
 [package]
 name = "interscript"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 publish = true
 
@@ -13,7 +13,7 @@ homepage = "https://www.interscript.org"
 # The ISC grammar compiler + PEG engine (grammar/isc.parg compiles through
 # this). Pinned to the 0.19.8 crates.io release the grammar, corpus
 # sweep (10,772 tests) and conformance runs were verified against.
-parsanol = { path = "/Users/mulgogi/src/parsanol/parsanol-rs/parsanol", version = "1.5.0" }
+parsanol = { path = "/Users/mulgogi/src/parsanol/parsanol-rs/parsanol", version = "1.5.1" }
 # Ruby \b/\B word-char table (Unicode Word = Alphabetic|Mark|Nd|Pc —
 # Onigmo parity for boundary primitives; std lacks general categories).
 unicode-general-category = "1.1.0"
