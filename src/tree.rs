@@ -74,6 +74,11 @@ impl TNode {
 }
 
 /// Resolve the portable engine's arena-backed AST into owned `TNode`s.
+///
+/// Walks the arena pools through the borrow accessors
+/// (`array_item`/`hash_item`) instead of `get_array`/`get_hash_items`,
+/// so no temporary Vec or intermediate clone is materialized per node —
+/// the only allocations are the owned `TNode` containers themselves.
 pub fn resolve(node: &AstNode, arena: &AstArena, input: &str) -> TNode {
     match node {
         AstNode::Nil => TNode::Nil,
@@ -85,19 +90,22 @@ pub fn resolve(node: &AstNode, arena: &AstArena, input: &str) -> TNode {
         AstNode::StringRef { pool_index } => {
             TNode::Str(arena.get_string(*pool_index as usize).to_string())
         }
-        AstNode::Array { pool_index, length } => TNode::Array(
-            arena
-                .get_array(*pool_index as usize, *length as usize)
-                .iter()
-                .map(|child| resolve(child, arena, input))
-                .collect(),
-        ),
+        AstNode::Array { pool_index, length } => {
+            let start = *pool_index as usize;
+            TNode::Array(
+                (0..*length as usize)
+                    .map(|i| resolve(arena.array_item(start, i), arena, input))
+                    .collect(),
+            )
+        }
         AstNode::Hash { pool_index, length } => {
-            let pairs = arena.get_hash_items(*pool_index as usize, *length as usize);
+            let start = *pool_index as usize;
             TNode::Hash(
-                pairs
-                    .into_iter()
-                    .map(|(k, v)| (k, resolve(&v, arena, input)))
+                (0..*length as usize)
+                    .map(|i| {
+                        let (key, value) = arena.hash_item(start, i);
+                        (key.to_string(), resolve(value, arena, input))
+                    })
                     .collect(),
             )
         }
