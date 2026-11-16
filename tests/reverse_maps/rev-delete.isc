@@ -2,4 +2,11 @@ system "rev:delete" {
 stage main {
   sub "h" none
 }
+# Ruby ground truth (see rev-parallel.isc): the reversed from is empty
+# (deletion), so the reversed rule is skipped — the reverse is the
+# identity here.
+tests {
+  "hi" -> "i"
+  "ih" -> "i"
+}
 }

@@ -50,7 +50,9 @@ fn usage() -> String {
   parse <file-or-dir>...
   parse-all [--root DIR]
   maps-fetch <version> [--dest DIR]   # fetch + verify + unpack the maps corpus release
-  capture [-o FILE] [--root DIR]      # golden transliteration capture (jsonl)
+  capture [-o FILE] [--root DIR] [--reverse] [--map-dir DIR]
+                                      # golden capture (jsonl); --reverse
+                                      # captures the reversed documents
   grammar-test
   infer <artifact_zip_or_model_id> <string> [--max-len N]
   conformance <fixture_file_or_dir> [<artifact_dir>]
@@ -114,9 +116,9 @@ fn run(args: &[String]) -> Result<(), CliError> {
             // maps-fetch takes its own --dest; pass it through to the
             // subcommand parser as positionals.
             "--dest" => positional.push("--dest".into()),
-            // capture takes its own -o/--root; pass through to the
-            // subcommand parser as positionals.
-            "-o" | "--root" => positional.push(arg.clone()),
+            // capture takes its own -o/--root/--reverse/--map-dir; pass
+            // through to the subcommand parser as positionals.
+            "-o" | "--root" | "--reverse" | "--map-dir" => positional.push(arg.clone()),
             other if other.starts_with("--") => {
                 return Err(CliError::Usage(format!("unknown option {other}")));
             }
@@ -579,16 +581,34 @@ fn cmd_maps_fetch(rest: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// `iscrs capture [-o FILE] [--root DIR]` — golden transliteration
-/// capture: one jsonl row per embedded-test input across the corpus,
-/// recording the runtime's actual output. The additivity baseline for
-/// ISC-WF-1 (WO16): after a runtime change, re-run and diff — zero
-/// delta on non-adopting maps is the merge gate.
+/// `iscrs capture [-o FILE] [--root DIR] [--reverse] [--map-dir DIR]` —
+/// golden transliteration capture: one jsonl row per embedded-test
+/// input across the corpus, recording the runtime's actual output. The
+/// additivity baseline for ISC-WF-1 (WO16): after a runtime change,
+/// re-run and diff — zero delta on non-adopting maps is the merge gate.
+///
+/// `--reverse` (WO20) captures the REVERSE-mode golden the same way:
+/// each map's document is reversed (`Document#reverse` parity) and the
+/// REVERSED document's own embedded tests — the swapped pairs, whose
+/// inputs are the forward expected outputs — run through the reversed
+/// main stage. Maps whose reverse is unsupported (the documented
+/// ruby-crash deviations, raised cleanly here) are skipped entirely:
+/// no rows, so every replay runtime sees the identical map set. A
+/// reverse-run execution error is recorded as `null` — the canonical
+/// marker each replay gate maps its own execution errors to.
+///
+/// `--map-dir DIR` (repeatable) appends extra map directories AFTER
+/// the corpus (root + libs): the reverse fixtures live in this repo
+/// (tests/reverse_maps). Enumeration follows the load path, dedup by
+/// map id, so a corpus map shadows a same-named fixture exactly like
+/// `locate` does — the row set stays deterministic for every replay.
 fn cmd_capture(rest: &[String]) -> Result<(), String> {
     use std::io::Write as _;
 
     let mut out_path = std::path::PathBuf::from("golden.jsonl");
     let mut root = std::path::PathBuf::from("../maps/maps");
+    let mut extra_dirs: Vec<PathBuf> = Vec::new();
+    let mut reverse = false;
     let mut it = rest.iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
@@ -602,14 +622,35 @@ fn cmd_capture(rest: &[String]) -> Result<(), String> {
                     it.next().ok_or("capture: --root needs a value")?,
                 )
             }
+            "--map-dir" => {
+                extra_dirs.push(std::path::PathBuf::from(
+                    it.next().ok_or("capture: --map-dir needs a value")?,
+                ))
+            }
+            "--reverse" => reverse = true,
             other => return Err(format!("capture: unknown argument {other}")),
         }
     }
 
-    let maps = list_isc(&root);
-    let rt = Runtime::new(load_path_for_root(&root));
+    // Enumeration order mirrors the load path (corpus first, extras
+    // after): the first occurrence of a map id wins, matching
+    // `locate`, so capture and every replay resolve the same files.
+    let mut maps = list_isc(&root);
+    let mut load_path = load_path_for_root(&root);
+    for dir in &extra_dirs {
+        load_path.push(dir.clone());
+        maps.extend(list_isc(dir));
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    maps.retain(|p| {
+        let id = p.file_stem().unwrap().to_string_lossy().to_string();
+        seen.insert(id)
+    });
+
+    let rt = Runtime::new(load_path);
     let mut rows = 0usize;
     let mut load_errors = 0usize;
+    let mut reverse_skipped = 0usize;
     let mut w = std::io::BufWriter::new(
         std::fs::File::create(&out_path).map_err(|e| e.to_string())?,
     );
@@ -625,6 +666,36 @@ fn cmd_capture(rest: &[String]) -> Result<(), String> {
                 continue;
             }
         };
+        if reverse {
+            let rdoc = match interscript_rs::reverse::reverse_document(&doc) {
+                Ok(d) => d,
+                Err(e) => {
+                    // Unsupported reverse (the documented ruby-crash
+                    // deviations): the recorded choice is absence — the
+                    // map contributes no rows to the golden.
+                    eprintln!("reverse unsupported: {map_id}: {e}");
+                    reverse_skipped += 1;
+                    continue;
+                }
+            };
+            // The reversed document's tests are the forward pairs
+            // swapped: inputs here are the forward expected outputs,
+            // and a correct inversion reproduces the forward inputs.
+            for (input, _) in &rdoc.tests.data {
+                let map_json = serde_json::to_string(&map_id).unwrap_or_else(|_| "null".into());
+                let src_json = serde_json::to_string(input).unwrap_or_else(|_| "null".into());
+                let out_json = match interscript_rs::interpreter::execute_stage_pub(
+                    &rdoc, "main", input, None,
+                ) {
+                    Ok(v) => serde_json::to_string(&v).unwrap_or_else(|_| "null".into()),
+                    Err(_) => "null".into(),
+                };
+                let _ =
+                    write!(w, "{{\"map\":{map_json},\"src\":{src_json},\"out\":{out_json}}}\n");
+                rows += 1;
+            }
+            continue;
+        }
         for (input, _) in &doc.tests.data {
             let map_json = serde_json::to_string(&map_id).unwrap_or_else(|_| "null".into());
             let src_json = serde_json::to_string(input).unwrap_or_else(|_| "null".into());
@@ -637,11 +708,20 @@ fn cmd_capture(rest: &[String]) -> Result<(), String> {
         }
     }
     w.flush().map_err(|e| e.to_string())?;
-    println!(
-        "captured {rows} rows from {} maps ({load_errors} load errors) -> {}",
-        maps.len(),
-        out_path.display()
-    );
+    if reverse {
+        println!(
+            "captured {rows} reverse rows from {} maps \
+             ({load_errors} load errors, {reverse_skipped} reverse-unsupported) -> {}",
+            maps.len(),
+            out_path.display()
+        );
+    } else {
+        println!(
+            "captured {rows} rows from {} maps ({load_errors} load errors) -> {}",
+            maps.len(),
+            out_path.display()
+        );
+    }
     Ok(())
 }
 

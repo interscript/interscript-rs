@@ -6,4 +6,13 @@ stage main {
     sub "x" "ks"
   }
 }
+# Ruby ground truth (interscript-ruby origin/main, 2026-11-17): the
+# forward pairs feed the reverse-mode golden capture — the reversed
+# document (ks->x, t->th, f->ph) must replay the swapped rows
+# byte-identically in every runtime.
+tests {
+  "phth" -> "ft"
+  "x" -> "ks"
+  "fats" -> "fats"
+}
 }

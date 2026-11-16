@@ -4,4 +4,11 @@ stage main {
   sub "m" "n"
   run map.base.stage.main
 }
+# Ruby ground truth (see rev-parallel.isc): forward m->n then run the
+# dep — "men" -> "pfp"; the reversed parent runs the reversed dep
+# (p->n, f->e) then n->m, so "pfp" -> "mem".
+tests {
+  "men" -> "pfp"
+  "pem" -> "pfp"
+}
 }

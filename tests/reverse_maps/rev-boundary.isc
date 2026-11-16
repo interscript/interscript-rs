@@ -3,4 +3,11 @@ stage main {
   sub "x" "y" after boundary
   sub "q" "r" before line_end
 }
+# Ruby ground truth (see rev-parallel.isc): reverse keeps the
+# constraints on the same side ("r y" -> "r x").
+tests {
+  "r y" -> "r y"
+  "yq" -> "yq"
+  "qr" -> "qr"
+}
 }

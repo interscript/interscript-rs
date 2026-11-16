@@ -5,4 +5,10 @@ stage main {
     sub "X" "Q"
   }
 }
+# Ruby ground truth (see rev-parallel.isc): forward ab->X->Q; the
+# reversed document restores the original order (Q->X, X->ab).
+tests {
+  "ab" -> "Q"
+  "abq" -> "Qq"
+}
 }

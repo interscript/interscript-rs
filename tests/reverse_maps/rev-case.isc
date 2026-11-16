@@ -6,4 +6,11 @@ stage main {
   }
   downcase
 }
+# Ruby ground truth (see rev-parallel.isc): the reversed document
+# title-cases, then subs "abc" to downcase — "abc" -> "Abc", not an
+# involution here.
+tests {
+  "abc" -> "abc"
+  "abc ABC" -> "abc abc"
+}
 }

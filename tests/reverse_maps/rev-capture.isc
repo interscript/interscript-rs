@@ -5,4 +5,11 @@ stage main {
     to "X" + ref(1)
   }
 }
+# Ruby ground truth (see rev-parallel.isc): reversed, from "X" +
+# capture("b" + maybe("c")) goes to "a" + ref(1) — "Xbc" -> "abcd".
+tests {
+  "abcd" -> "Xbc"
+  "Xd" -> "Xd"
+  "aXcd" -> "aXcd"
+}
 }
