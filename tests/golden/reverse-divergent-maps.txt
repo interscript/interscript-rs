@@ -1,0 +1,146 @@
+# WO20 reverse-mode golden: maps whose reverse DIVERGES across the four
+# runtimes (rs reference capture vs ruby/ts/py replay), excluded from
+# tests/golden/isc-reverse.jsonl so the golden replays byte-identically
+# everywhere. Derived 2026-11-17 from full-corpus replay deltas:
+#   ruby 568 rows / 27 maps, ts 603 rows / 33 maps, py 3215 rows / 123
+#   maps — union 125 maps (this file).
+#
+# Known divergence families (shrink-to-zero: fixing a runtime removes
+# its maps here and grows the golden):
+#   1. ruby+ts (the ruby-engine family): reversed rules whose from is
+#      zero-width (empty string + boundary assertions — e.g. the
+#      ALA-LC Arabic rule-8a word-initial-hamzah deletion) fire as
+#      insertions under the ruby engine while the rs engine leaves
+#      them inert; on the same maps the reversed parallel rule
+#      selection order also differs (rs picks the row its own swapped
+#      embedded tests expect; ruby/ts pick compound diacritic rules).
+#   2. py: the compiled-IR reverse port deviates more broadly (rule
+#      selection/order on reversed parallels; the rev-dep fixture's
+#      run-rule reversal).
+# One map id per line; '#' comments. The rs capture skips these maps
+# in --reverse mode; no rows exist for them anywhere.
+alalc-amh-Ethi-Latn-2011
+alalc-ara-Arab-Latn-1997
+alalc-asm-Deva-Latn-2012
+alalc-aze-Arab-Latn-1997
+alalc-ben-Beng-Latn-2017
+alalc-div-Thaa-Latn-1997
+alalc-div-Thaa-Latn-2012
+alalc-fas-Arab-Latn-1997
+alalc-guj-Gujr-Latn-2011
+alalc-hin-Deva-Latn-1997
+alalc-hin-Deva-Latn-2011
+alalc-kan-Kana-Latn-2011
+alalc-kat-Geok-Latn-2011
+alalc-kat-Geor-Latn-2011
+alalc-kor-Hang-Latn-1997
+alalc-mal-Mlym-Latn-2012
+alalc-mar-Deva-Latn-2011
+alalc-ori-Orya-Latn-2011
+alalc-ota-Arab-Latn-1997
+alalc-pan-Guru-Latn-2011
+alalc-pra-Deva-Latn-2012
+alalc-rus-Cyrl-Latn-2012
+alalc-sin-Sinh-Latn-2011
+alalc-tam-Taml-Latn-1997
+alalc-tam-Taml-Latn-2011
+alalc-tel-Telu-Latn-2011
+alalc-tir-Ethi-Latn-2011
+alalc-uig-Arab-Latn-2015
+az-aze-Cyrl-Latn-1958
+bgn-jpn-Hrkt-Latn-1962
+bgn-kor-Hang-Latn-1943
+bgn-kor-Kore-Latn-1943
+bgna-bul-Cyrl-Latn-2006
+bgna-bul-Cyrl-Latn-2009
+bgnpcgn-ara-Arab-Latn-1956
+bgnpcgn-bal-Arab-Latn-2008
+bgnpcgn-bul-Cyrl-Latn-2013
+bgnpcgn-div-Thaa-Latn-1988
+bgnpcgn-ell-Grek-Latn-1996
+bgnpcgn-fao-Latn-Latn-1964
+bgnpcgn-fao-Latn-Latn-1968
+bgnpcgn-isl-Latn-Latn-1968
+bgnpcgn-jpn-Hrkt-Latn-1976
+bgnpcgn-kat-Geor-Latn-2009
+bgnpcgn-kor-Hang-Latn-kn-1945
+bgnpcgn-kor-Hang-Latn-rok-2011
+bgnpcgn-kor-Kore-Latn-rok-2011
+bgnpcgn-per-Arab-Latn-1958
+bgnpcgn-prs-Arab-Latn-2007
+bgnpcgn-prs-Arab-Latn-yaghoubi
+bgnpcgn-pus-Arab-Latn-1968
+bgnpcgn-srp-Cyrl-Latn-1962
+bgnpcgn-tuk-Cyrl-Latn-1993
+bgnpcgn-ukr-Cyrl-Latn-2019
+bgnpcgn-urd-Arab-Latn-2007
+bgnpcgn-uzb-Cyrl-Latn-2000
+bgnpcgn-zho-Hans-Latn-1979
+by-bel-Cyrl-Latn-1998
+by-bel-Cyrl-Latn-2007
+din-hin-Deva-Latn-33904-2018
+din-mar-Deva-Latn-33904-2018
+din-nep-Deva-Latn-33904-2018
+din-pli-Deva-Latn-33904-2018
+din-pra-Deva-Latn-33904-2018
+dos-nep-Deva-Latn-1997
+elot-ell-Grek-Latn-743-2001-ts
+gki-bel-Cyrl-Latn-1992
+iso-ara-Arab-Latn-233-1984
+iso-ara-Arab-Latn-233-2-1993
+iso-asm-Beng-Latn-15919-2001
+iso-ell-Grek-Latn-843-1997-t2
+iso-hin-Deva-Latn-15919-2001
+iso-inc-Deva-Latn-15919-2001
+iso-jpn-Hrkt-Latn-3602-1989
+iso-kor-Hang-Latn-1996-method1
+iso-kor-Hang-Latn-1996-method2
+iso-mar-Deva-Latn-15919-2001
+iso-nep-Deva-Latn-15919-2001
+iso-pli-Beng-Latn-15919-2001
+iso-pli-Deva-Latn-15919-2001
+iso-pli-Thai-Latn-15919-2001
+iso-pra-Deva-Latn-15919-2001
+kp-kor-Hang-Latn-2002
+moct-kor-Hang-Latn-2000
+mvd-bel-Cyrl-Latn-2010
+mvd-rus-Cyrl-Latn-2010
+odni-ara-Arab-Latn-2004
+odni-ara-Arab-Latn-2015
+odni-bul-Cyrl-Latn-2015
+odni-fas-Arab-Latn-2004
+odni-fas-Arab-Latn-2015
+odni-kor-Hang-Latn-2015
+odni-mkd-Cyrl-Latn-2005
+odni-prs-Arab-Latn-2004
+odni-prs-Arab-Latn-2015
+odni-pus-Arab-Latn-2011
+odni-rus-Cyrl-Latn-2015
+odni-srp-Cyrl-Latn-2005
+rev-dep
+sasm-mon-Mong-Latn-phonetic-1978
+ses-ara-Arab-Latn-1930
+ua-ukr-Cyrl-Latn-2007
+ua-ukr-Cyrl-Latn-2010
+un-ara-Arab-Latn-1971
+un-ara-Arab-Latn-1972
+un-ara-Arab-Latn-2017
+un-bel-Cyrl-Latn-2007
+un-ell-Grek-Latn-1987-phonetic
+un-ell-Grek-Latn-1987-tl
+un-ell-Grek-Latn-1987-ts
+un-mar-Deva-Latn-2016
+un-mon-Mong-Latn-general-2013
+un-mon-Mong-Latn-phonetic-2013
+un-nep-Deva-Latn-2013
+un-prs-Arab-Latn-1967
+un-rus-Cyrl-Latn-1987
+un-srp-Cyrl-Latn-1997
+un-ukr-Cyrl-Latn-1998
+un-ukr-Cyrl-Latn-2012
+un-urd-Arab-Latn-1972
+var-gez-Ethi-Latn-eae-2003
+var-kor-Hang-Latn-mr-1939
+var-kor-Kore-Latn-mr-1939
+var-mar-Deva-Latn-hunterian-1872
+var-pra-Deva-Latn-iast-1912
