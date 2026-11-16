@@ -53,6 +53,8 @@ fn usage() -> String {
   capture [-o FILE] [--root DIR] [--reverse] [--map-dir DIR]
                                       # golden capture (jsonl); --reverse
                                       # captures the reversed documents
+                                      # (--exclude FILE: divergent-maps
+                                      # manifest, default next to -o)
   grammar-test
   infer <artifact_zip_or_model_id> <string> [--max-len N]
   conformance <fixture_file_or_dir> [<artifact_dir>]
@@ -597,6 +599,14 @@ fn cmd_maps_fetch(rest: &[String]) -> Result<(), String> {
 /// reverse-run execution error is recorded as `null` — the canonical
 /// marker each replay gate maps its own execution errors to.
 ///
+/// Reverse mode also skips maps listed in the divergent-maps manifest
+/// (default: `reverse-divergent-maps.txt` next to the output file;
+/// `--exclude FILE` overrides). Those maps' reverses are KNOWN to
+/// diverge across the four runtimes — the manifest documents the
+/// divergence families and shrinks as the ports converge; excluded
+/// maps contribute no rows, so the golden replays byte-identically
+/// everywhere.
+///
 /// `--map-dir DIR` (repeatable) appends extra map directories AFTER
 /// the corpus (root + libs): the reverse fixtures live in this repo
 /// (tests/reverse_maps). Enumeration follows the load path, dedup by
@@ -608,6 +618,7 @@ fn cmd_capture(rest: &[String]) -> Result<(), String> {
     let mut out_path = std::path::PathBuf::from("golden.jsonl");
     let mut root = std::path::PathBuf::from("../maps/maps");
     let mut extra_dirs: Vec<PathBuf> = Vec::new();
+    let mut exclude: Option<PathBuf> = None;
     let mut reverse = false;
     let mut it = rest.iter();
     while let Some(arg) = it.next() {
@@ -627,10 +638,34 @@ fn cmd_capture(rest: &[String]) -> Result<(), String> {
                     it.next().ok_or("capture: --map-dir needs a value")?,
                 ))
             }
+            "--exclude" => {
+                exclude = Some(std::path::PathBuf::from(
+                    it.next().ok_or("capture: --exclude needs a value")?,
+                ))
+            }
             "--reverse" => reverse = true,
             other => return Err(format!("capture: unknown argument {other}")),
         }
     }
+    let exclude = if reverse {
+        Some(exclude.unwrap_or_else(|| {
+            out_path
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("reverse-divergent-maps.txt")
+        }))
+    } else {
+        exclude
+    };
+    let excluded: std::collections::BTreeSet<String> = exclude
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .map(|s| {
+            s.lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Enumeration order mirrors the load path (corpus first, extras
     // after): the first occurrence of a map id wins, matching
@@ -656,6 +691,10 @@ fn cmd_capture(rest: &[String]) -> Result<(), String> {
     );
     for path in &maps {
         let map_id = path.file_stem().unwrap().to_string_lossy().to_string();
+        if excluded.contains(&map_id) {
+            reverse_skipped += 1;
+            continue;
+        }
         let doc = match rt.load(&map_id) {
             Ok(d) => d,
             Err(e) => {
