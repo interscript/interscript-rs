@@ -3,4 +3,11 @@ stage main {
   separate separator "-"
   compose
 }
+# Ruby ground truth (see rev-parallel.isc): forward separate+compose;
+# the reversed funcalls (decompose, then unseparate "-") must map
+# "a-b-c" -> "abc".
+tests {
+  "abc" -> "a-b-c"
+  "a-b-c" -> "a---b---c"
+}
 }
