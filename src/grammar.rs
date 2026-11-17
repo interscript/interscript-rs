@@ -8,8 +8,9 @@ use crate::tree::{resolve, TNode};
 use parsanol::parg::frontend::compile::{compile_entry_mode, Tables};
 use parsanol::parg::frontend::parser::parse_grammar_with_mode;
 use parsanol::portable::parslet_transform::to_parslet_compatible;
+use parsanol::portable::parser_analysis::ParserAnalysis;
 use parsanol::portable::Grammar;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 /// `grammar/isc.parg` — vendored verbatim from interscript-ruby@34bd8829
 /// (introduced in WO13 commit 873caf2; blob c9d4ffc8), then extended in
@@ -21,28 +22,43 @@ use std::sync::OnceLock;
 /// so the extension is parse-additive.
 pub const ISC_PARG: &str = include_str!("../grammar/isc.parg");
 
-fn compiled() -> &'static Grammar {
-    static GRAMMAR: OnceLock<Grammar> = OnceLock::new();
+fn compiled() -> &'static Arc<Grammar> {
+    static GRAMMAR: OnceLock<Arc<Grammar>> = OnceLock::new();
     GRAMMAR.get_or_init(|| {
         let (parsed, mode) = parse_grammar_with_mode(ISC_PARG)
             .expect("embedded grammar/isc.parg must parse");
-        compile_entry_mode(
-            &parsed.document,
-            "isc",
-            &Tables::new(),
-            &parsed.atomic_rules,
-            mode.as_deref(),
+        Arc::new(
+            compile_entry_mode(
+                &parsed.document,
+                "isc",
+                &Tables::new(),
+                &parsed.atomic_rules,
+                mode.as_deref(),
+            )
+            .expect("embedded grammar/isc.parg must compile"),
         )
-        .expect("embedded grammar/isc.parg must compile")
     })
+}
+
+/// The grammar's per-atom analysis, computed once for the process.
+/// `PortableParser::new` recomputes it per construction; with 428
+/// corpus maps parsed through one grammar, computing it once and
+/// handing the shared `Arc` to every parse (`with_analysis`) stops the
+/// per-input re-dispatch of work that depends only on the grammar.
+fn analysis() -> &'static Arc<ParserAnalysis> {
+    static ANALYSIS: OnceLock<Arc<ParserAnalysis>> = OnceLock::new();
+    ANALYSIS.get_or_init(|| Arc::new(ParserAnalysis::compute(&compiled())))
 }
 
 /// Parse an ISC map source into the parslet-shaped value tree the
 /// Ruby-side `Interscript::Isc::DocumentBuilder` consumes.
 pub fn parse_isc(source: &str) -> Result<TNode, (usize, Vec<String>)> {
     let grammar = compiled();
+    let analysis = analysis();
     let mut arena = parsanol::portable::AstArena::for_input(source.len().max(1 << 16));
-    let mut parser = parsanol::portable::PortableParser::new(grammar, source, &mut arena);
+    let mut parser = parsanol::portable::PortableParser::with_analysis(
+        grammar, source, &mut arena, analysis,
+    );
     let ast = match parser.parse() {
         Ok(ast) => ast,
         Err(_) => {
