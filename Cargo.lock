@@ -282,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "interscript"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "flate2",
  "ort",
@@ -450,9 +450,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol"
-version = "1.5.1"
+version = "1.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35a5a5387c77ca4aa96cffc0d1e5cf7e58d59461bee792ed6c08f3281750080c"
+checksum = "2940e38a3dfb0c1b5d07d2e5714a22be21076573b494766f7842b30a92e9ea1e"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -469,9 +469,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol-derive"
-version = "1.5.1"
+version = "1.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e85c91adde527b4c37d7f2e04409a7998d5f6482e36da14bc6a81d190be60979"
+checksum = "3382317ac19d5601b2e1d120bf0c27a36cb7fb1f824607e07d0bd9447e24532e"
 dependencies = [
  "proc-macro2",
  "quote",
