@@ -168,6 +168,28 @@ pub fn execute_stage_pub(
     execute_stage(doc, stage_name, input, language)
 }
 
+fn execute_stage(
+    doc: &Document,
+    stage_name: &str,
+    input: &str,
+    language: Option<&str>,
+) -> Result<String> {
+    // maps#294 (WO20 fuzz): thread the run chain so a self-recursive or
+    // mutually recursive `run` is a named `MapLogicError` (mirroring the
+    // W1 `use cycle:` errors) instead of an uncatchable stack-overflow
+    // abort. Each entry is the run's RESOLVED target (document name +
+    // stage), so keys are unique per hop target and only genuine cycles
+    // match.
+    let mut stack = vec![format!("map.{}.stage.{}", doc.name, stage_name)];
+    execute_stage_guarded(doc, stage_name, input, language, &mut stack)
+}
+
+fn run_cycle_error(stack: &[String], entry: &str) -> Error {
+    let mut chain = stack.to_vec();
+    chain.push(entry.to_string());
+    Error::MapLogic(format!("run cycle: {}", chain.join(" -> ")))
+}
+
 /// W3 (§5.2) pass filtering: the applicable rule set = unguarded rules
 /// ∪ guarded rules whose `when` matches the selected language — and a
 /// guard-applicable rule BEATS an unguarded rule with the same from
@@ -196,11 +218,12 @@ fn guard_filter<'a>(rules: &[&'a Sub], language: Option<&str>) -> Vec<&'a Sub> {
         .collect()
 }
 
-fn execute_stage(
+fn execute_stage_guarded(
     doc: &Document,
     stage_name: &str,
     input: &str,
     language: Option<&str>,
+    stack: &mut Vec<String>,
 ) -> Result<String> {
     // W3 §5.1: the selection is honored only if this document declares
     // it — an undeclared selection is like no selection, and every
@@ -249,12 +272,34 @@ fn execute_stage(
                     let dep_doc = doc.dep_aliases.get(alias).ok_or_else(|| {
                         Error::MapLogic(format!("dep alias {alias:?} not found in {}", doc.name))
                     })?;
+                    // The cycle key is the RESOLVED target (doc name +
+                    // stage), not the alias spelling: distinct levels of
+                    // a dependency chain may spell the same alias for
+                    // different targets (the tamil/tamllatn library
+                    // chain does), and only a repeated resolved target
+                    // is a genuine cycle.
+                    let entry = format!("map.{}.stage.{}", dep_doc.name, stage);
+                    if stack.iter().any(|e| e == &entry) {
+                        return Err(run_cycle_error(stack, &entry));
+                    }
+                    stack.push(entry);
                     // W3 §5.3: the selection threads into dependency
                     // stage runs (each document's own declaration
                     // gates its guards).
-                    execute_stage(dep_doc, stage, &s, language)?
+                    let r = execute_stage_guarded(dep_doc, stage, &s, language, stack);
+                    stack.pop();
+                    r?
                 }
-                None => execute_stage(doc, stage, &s, language)?,
+                None => {
+                    let entry = format!("map.{}.stage.{}", doc.name, stage);
+                    if stack.iter().any(|e| e == &entry) {
+                        return Err(run_cycle_error(stack, &entry));
+                    }
+                    stack.push(entry);
+                    let r = execute_stage_guarded(doc, stage, &s, language, stack);
+                    stack.pop();
+                    r?
+                }
             },
             StageItem::Funcall(funcall) => funcall.name.apply(s, &funcall.kwargs)?,
         };
