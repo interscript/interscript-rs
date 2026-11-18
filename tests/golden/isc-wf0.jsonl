@@ -7505,84 +7505,95 @@
 {"map":"bsi-ron-Cyrl-Latn-1958","src":"ꙏ","out":"în"}
 {"map":"bsi-ron-Cyrl-Latn-1958","src":"Џ","out":"G"}
 {"map":"bsi-ron-Cyrl-Latn-1958","src":"џ","out":"g"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Бюллетень","out":"Byulleten’"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Известия","out":"Izvestiya"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Академии Наук","out":"Akademii Nauk"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ленинград","out":"Leningrad"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Техника Промышленность и Торговля","out":"Tekhnika Promȳshlennost’ i Torgovlya"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Москва","out":"Moskva"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"А","out":"A"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"а","out":"a"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Б","out":"B"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"б","out":"b"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"В","out":"V"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"в","out":"v"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Г","out":"G"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"г","out":"g"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Д","out":"D"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"д","out":"d"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Е","out":"E"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"е","out":"e"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ё","out":"Ě"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ё","out":"ě"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ж","out":"Zh"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ж","out":"zh"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"З","out":"Z"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"з","out":"z"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"И","out":"I"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"и","out":"i"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Й","out":"Ĭ"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"й","out":"ĭ"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"К","out":"K"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"к","out":"k"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Л","out":"L"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"л","out":"l"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"М","out":"M"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"м","out":"m"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Н","out":"N"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"н","out":"n"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"О","out":"O"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"о","out":"o"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"П","out":"P"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"п","out":"p"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Р","out":"R"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"р","out":"r"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"С","out":"S"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"с","out":"s"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Т","out":"T"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"т","out":"t"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Тс","out":"T-s"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"тс","out":"t-s"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"У","out":"U"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"у","out":"u"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ф","out":"F"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ф","out":"f"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Х","out":"Kh"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"х","out":"kh"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ц","out":"Ts"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ц","out":"ts"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ч","out":"Ch"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ч","out":"ch"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ш","out":"Sh"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ш","out":"sh"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Щ","out":"Shch"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"щ","out":"shch"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ъ","out":"”"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ъ","out":"”"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ы","out":"Ȳ"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ы","out":"ȳ"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ь","out":"’"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ь","out":"’"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Э","out":"É"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"э","out":"é"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ю","out":"Yu"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ю","out":"yu"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Я","out":"Ya"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"я","out":"ya"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"І","out":"I"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"і","out":"i"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"Ѣ","out":"Ě"}
-{"map":"bsi-rus-Cyrl-Latn-1958","src":"ѣ","out":"ě"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Бюллетень","out":"Byulleten’"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Энгельгардтовская Астрономическая Обсерватория","out":"Éngel’gardtovskaya Astronomicheskaya Observatoriya"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Гидротехническое Строительство. Москва","out":"Gidrotekhnicheskoe Stroitel’stvo. Moskva"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Извѣстія Общества Археологіи, Исторіи и Этнографіи","out":"Izvêstiya Obshchestva Arkheologii, Istorii i Étnografii"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Техника, Промышленность и Торговля","out":"Tekhnika, Promȳshlennost’ i Torgovlya"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Химия и социалистическое Хозяйство. Москва","out":"Khimiya i sotsialisticheskoe Khozyaĭstvo. Moskva"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Академии Наук","out":"Akademii Nauk"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ленинград","out":"Leningrad"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Известия","out":"Izvestiya"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Москва","out":"Moskva"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Херсонъ","out":"Kherson"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"объект","out":"ob”ekt"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"подъезд","out":"pod”ezd"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"А","out":"A"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"а","out":"a"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Б","out":"B"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"б","out":"b"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"В","out":"V"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"в","out":"v"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Г","out":"G"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"г","out":"g"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Д","out":"D"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"д","out":"d"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Е","out":"E"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"е","out":"e"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ё","out":"Ě"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ё","out":"ě"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ж","out":"Zh"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ж","out":"zh"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"З","out":"Z"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"з","out":"z"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"И","out":"I"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"и","out":"i"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Й","out":"Ĭ"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"й","out":"ĭ"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"К","out":"K"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"к","out":"k"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Л","out":"L"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"л","out":"l"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"М","out":"M"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"м","out":"m"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Н","out":"N"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"н","out":"n"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"О","out":"O"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"о","out":"o"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"П","out":"P"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"п","out":"p"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Р","out":"R"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"р","out":"r"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"С","out":"S"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"с","out":"s"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Т","out":"T"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"т","out":"t"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Тс","out":"T-s"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"тс","out":"t-s"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"У","out":"U"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"у","out":"u"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ф","out":"F"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ф","out":"f"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Х","out":"Kh"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"х","out":"kh"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ц","out":"Ts"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ц","out":"ts"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ч","out":"Ch"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ч","out":"ch"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ш","out":"Sh"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ш","out":"sh"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Щ","out":"Shch"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"щ","out":"shch"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ъ","out":""}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ъ","out":""}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ы","out":"Ȳ"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ы","out":"ȳ"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ь","out":"’"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ь","out":"’"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Э","out":"É"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"э","out":"é"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ю","out":"Yu"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ю","out":"yu"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Я","out":"Ya"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"я","out":"ya"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"І","out":"I"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"і","out":"i"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ѣ","out":"Ê"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ѣ","out":"ê"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ѳ","out":"Ḟ"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ѳ","out":"ḟ"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"Ѵ","out":"Ŷ"}
+{"map":"bsi-rus-Cyrl-Latn-2979-1958","src":"ѵ","out":"ŷ"}
 {"map":"bsi-srp-Cyrl-Latn-1958","src":"Заштита биља","out":"Zaštita bilja"}
 {"map":"bsi-srp-Cyrl-Latn-1958","src":"Скопље","out":"Skoplje"}
 {"map":"bsi-srp-Cyrl-Latn-1958","src":"Српски Архив","out":"Srpski Arhiv"}
@@ -10479,7 +10490,7 @@
 {"map":"iso-mal-Mlym-Latn-15919-2001","src":"൱","out":"100"}
 {"map":"iso-mar-Deva-Latn-15919-2001","src":"ठाणे - जिल्ह्यात बुधवारी एक हजार रुग्णांची वाढ, तर जणांच्या मृत्यूची नोंद","out":"ṭhaāṇae - jailahayaāta baudhavaāraī eka hajaāra raugaṇaāṁcaī vaāḍha, tara jaṇaāṁcayaā maṛtayaūcaī naoṁda"}
 {"map":"iso-mar-Deva-Latn-15919-2001","src":"एकता कपूर पुन्हा अडकली वादात, वेबसीरिजमधल्या 'त्या' सीनमुळे जमावाची घरावर दगडफेक","out":"ekataā kapaūra paunahaā aḍakalaī vaādaāta, vaebasaīraijamadhalayaā 'tayaā' saīnamauḷae jamaāvaācaī gharaāvara dagaḍaphaeka"}
-{"map":"iso-mar-Deva-Latn-15919-2001","src":"जाणून घ्या, बीएमसीच्या अधिकाऱ्यांनी कंगना राणौतच्या ऑफिसमधले नक्की काय- काय तोडलं","out":"jaāṇaūna ghayaā, baīemasaīcayaā adhaikaāऱyaāṁnaī kaṁganaā raāṇaautacayaā ôphaisamadhalae nakakaī kaāya- kaāya taoḍalaṁ"}
+{"map":"iso-mar-Deva-Latn-15919-2001","src":"जाणून घ्या, बीएमसीच्या अधिकाऱ्यांनी कंगना राणौतच्या ऑफिसमधले नक्की काय- काय तोडलं","out":"jaāṇaūna ghayaā, baīemasaīcayaā adhaikaār̆yaāṁnaī kaṁganaā raāṇaautacayaā ôphaisamadhalae nakakaī kaāya- kaāya taoḍalaṁ"}
 {"map":"iso-mar-Deva-Latn-15919-2001","src":"कंगना मुंबईत दाखल होण्यापूर्वी 'मातोश्री'वरून फर्मान सुटले; प्रवक्त्यांना सक्त आदेश","out":"kaṁganaā mauṁbaīta daākhala haoṇayaāpaūravaī 'maātaośaraī'varaūna pharamaāna sauṭalae; paravakatayaāṁnaā sakata ādaeśa"}
 {"map":"iso-mar-Deva-Latn-15919-2001","src":"मराठा आरक्षणास तात्पुरती स्थगिती; सर्वोच्च न्यायालयाचा निर्णय","out":"maraāṭhaā ārakaṣaṇaāsa taātapaurataī sathagaitaī; saravaocaca nayaāyaālayaācaā nairaṇaya"}
 {"map":"iso-mar-Deva-Latn-15919-2001","src":"भारताच्या तिन्ही लशींचा पहिला टप्पा यशस्वी, वाचा कधी येणार बाजारात","out":"bhaārataācayaā tainahaī laśaīṁcaā pahailaā ṭapapaā yaśasavaī, vaācaā kadhaī yaeṇaāra baājaāraāta"}
