@@ -299,44 +299,47 @@ pub fn swapcase(s: String) -> String {
 /// then `gsub(/#{word_separator}(.)/, &:upcase)` — the block upcases
 /// the WHOLE match (separator included), so the replacement for a
 /// match `sep + ch` is `(sep + ch).to_uppercase`.
+///
+/// Ruby `^` matches at the start of EVERY LINE (not just the string
+/// start), so `gsub(/^(.)/)` upcases the first char of each line; the
+/// string-start reading left reversed-downcase runs (the WO20 reverse
+/// golden's `un-ell-Grek-Latn-1987-phonetic` family) converting only
+/// the string head. Ruby is the ground truth (rs reverse.rs header).
+/// `.` never matches the newline itself.
 pub fn title_case(s: String, word_separator: &str) -> String {
-    let out = upcase_first(s);
+    let out = upcase_line_starts(s);
     if word_separator.is_empty() {
         return out;
     }
-    let sep: Vec<char> = word_separator.chars().collect();
-    let chars: Vec<char> = out.chars().collect();
-    let mut result = String::new();
-    let mut i = 0usize;
-    while i < chars.len() {
-        if i + sep.len() < chars.len() && chars[i..i + sep.len()] == sep[..] {
-            let mut m: String = sep.iter().collect();
-            m.extend(chars[i + sep.len()].to_uppercase());
-            result.push_str(&m);
-            i += sep.len() + 1;
-        } else {
-            result.push(chars[i]);
-            i += 1;
-        }
-    }
-    result
+    updown_per_word(out, word_separator, true)
 }
 
 /// `Interscript::Stdlib::Functions.downcase` with word_separator —
-/// same whole-match downcasing.
+/// same whole-match downcasing over line-start downcasing.
 pub fn downcase_per_word(s: String, word_separator: &str) -> String {
-    let out = downcase_first(s);
+    let out = downcase_line_starts(s);
     if word_separator.is_empty() {
         return out;
     }
+    updown_per_word(out, word_separator, false)
+}
+
+/// `gsub(/#{sep}(.)/, &:upcase)` — the block upcases the WHOLE match
+/// (separator included), so the replacement for a match `sep + ch` is
+/// `(sep + ch).to_uppercase`.
+fn updown_per_word(s: String, word_separator: &str, up: bool) -> String {
     let sep: Vec<char> = word_separator.chars().collect();
-    let chars: Vec<char> = out.chars().collect();
+    let chars: Vec<char> = s.chars().collect();
     let mut result = String::new();
     let mut i = 0usize;
     while i < chars.len() {
         if i + sep.len() < chars.len() && chars[i..i + sep.len()] == sep[..] {
             let mut m: String = sep.iter().collect();
-            m.extend(chars[i + sep.len()].to_lowercase());
+            if up {
+                m.extend(chars[i + sep.len()].to_uppercase());
+            } else {
+                m.extend(chars[i + sep.len()].to_lowercase());
+            }
             result.push_str(&m);
             i += sep.len() + 1;
         } else {
@@ -347,20 +350,36 @@ pub fn downcase_per_word(s: String, word_separator: &str) -> String {
     result
 }
 
-fn upcase_first(s: String) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-        None => s,
+/// Ruby `gsub(/^(.)/, &:upcase)`: `^` matches at the start of every
+/// line, `.` never matches `\n`. A line-start with no char (empty
+/// line) produces no match.
+fn upcase_line_starts(s: String) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut at_line_start = true;
+    for c in s.chars() {
+        if at_line_start && c != '\n' {
+            result.extend(c.to_uppercase());
+        } else {
+            result.push(c);
+        }
+        at_line_start = c == '\n';
     }
+    result
 }
 
-fn downcase_first(s: String) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        Some(first) => first.to_lowercase().collect::<String>() + chars.as_str(),
-        None => s,
+/// Ruby `gsub(/^(.)/, &:downcase)`.
+fn downcase_line_starts(s: String) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut at_line_start = true;
+    for c in s.chars() {
+        if at_line_start && c != '\n' {
+            result.extend(c.to_lowercase());
+        } else {
+            result.push(c);
+        }
+        at_line_start = c == '\n';
     }
+    result
 }
 
 /// The funcalls that need external engines; unsupported in this slice.

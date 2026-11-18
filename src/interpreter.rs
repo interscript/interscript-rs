@@ -338,7 +338,14 @@ fn apply_parallel(doc: &Document, rules: &[Sub], s: &str, language: Option<&str>
     let mut out = String::with_capacity(s.len());
     let mut copied = 0usize; // chars[..copied] are already emitted
     let mut pos = 0usize;
-    while pos < chars.len() {
+    // A gsub pass attempts the megaregexp at every position INCLUDING
+    // the end (a zero-width pattern produces one final empty match) —
+    // the same contract `apply_sub` documents. The `pos < len` bound
+    // here left assertion-only reversed rules (e.g. ALA-LC Arabic
+    // rule-8a's word-initial-hamzah restore) inert at end-of-string
+    // while ruby/ts/py fired them there (WO20 reverse golden, manifest
+    // family 1).
+    while pos <= chars.len() {
         let mut matched: Option<(usize, String)> = None;
         for &i in &order {
             let rule = applicable[i];
@@ -662,7 +669,7 @@ impl<'a> Matcher<'a> {
                 }
                 self.call(k, pos)
             }
-            Item::Some(inner) => self.match_some(inner, pos, 1, k),
+            Item::Some(inner) => self.match_some(inner, pos, pos, 1, k),
             Item::CaptureGroup { id, inner } => {
                 let snapshot = self.groups.borrow().clone();
                 let id = *id;
@@ -736,6 +743,7 @@ impl<'a> Matcher<'a> {
     fn match_some(
         &self,
         inner: &Item,
+        start: usize,
         pos: usize,
         count: usize,
         k: &mut dyn FnMut(&Matcher, usize) -> Result<bool>,
@@ -745,7 +753,7 @@ impl<'a> Matcher<'a> {
         // (regex empty-loop guard).
         let extended = self.match_item(inner, pos, &mut |m, end| {
             if end > pos {
-                Ok(m.match_some(inner, end, count + 1, k))
+                Ok(m.match_some(inner, start, end, count + 1, k))
             } else {
                 Ok(false)
             }
@@ -753,7 +761,15 @@ impl<'a> Matcher<'a> {
         if extended {
             return true;
         }
-        if count >= 1 {
+        // The give-back continuation needs this instance to have
+        // consumed at least one character: `pos > start`. Without the
+        // guard, a `some` at end-of-input satisfied its continuation
+        // with zero consumption — `(?:a+)(?:a+)` "matched" with the
+        // second capture empty instead of forcing the greedy backtrack
+        // that splits the input (ruby `(?:x+)(?:x+)` on "kim" gives
+        // "ki-m"; the unguarded fallback produced "kim-" — the WO20
+        // reverse-golden odni-kor family).
+        if count >= 1 && pos > start {
             self.call(k, pos)
         } else {
             false
