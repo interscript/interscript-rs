@@ -76,3 +76,21 @@ resident set of the whole runner process per phase (`/usr/bin/time -l`).
 `<runtime>-<phase>.json` + `.rss` files. The generated `bench-inputs.json`
 and the per-phase result files are local bench fixtures and are not
 committed to any repository.
+
+## Refresh 2026-11-21 — py after #48 (caching) + #49 (full parser coverage)
+
+py @ 66bf7ee, same machine, same maps pin 9cfbf4cf, same 200-doc sample:
+
+| metric | baseline (6d29cb7c) | refresh (66bf7ee) | note |
+| --- | ---: | ---: | --- |
+| loaded maps | 435/457 | **457/457** | the 22 parser-gap maps now load (py#49) |
+| cold load | 3.59 s | 7.27 s | parses 22 more maps incl. the heavy 15919-2026 family |
+| warm docs/sec | 52.1 | **91.1** | +75% with strictly MORE work: 0 errors, all 200 docs decode (baseline errored 7 maps' docs out) |
+| chars/sec | 1,426 | 2,496 | |
+| peak doc (un-ell 701 chars) | 42 ms | 42 ms | unchanged |
+
+Comparability: the baseline run counted only successfully-transliterated docs (7 maps of the
+sample errored out); the refresh decodes all 200. Warm throughput is therefore not directly
+comparable to the baseline row — the honest statement is +75% throughput while doing strictly
+more work, with the caching optimization (#48) landing 2.72x on the fixed original sample
+(57.8 → 157.2 docs/s, see the optimization PR).
