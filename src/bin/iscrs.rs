@@ -67,7 +67,7 @@ options:
   --json           machine-readable summary lines (test-all/parse-all)
 
 environment (IMF commands):
-  SECRYST_INDEX    models.yaml index URL or path (default: index-v16)
+  SECRYST_INDEX    models.yaml index URL or path (default: index-v17)
   SECRYST_CACHE    artifact cache dir (default: ~/.cache/secryst)"#
         .to_string()
 }

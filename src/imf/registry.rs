@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-const DEFAULT_INDEX_URL: &str = "https://github.com/interscript/interscript-models/releases/download/index-v16/models-index.yaml";
+const DEFAULT_INDEX_URL: &str = "https://github.com/interscript/interscript-models/releases/download/index-v17/models-index.yaml";
 const ENV_INDEX: &str = "SECRYST_INDEX";
 const ENV_CACHE: &str = "SECRYST_CACHE";
 
@@ -78,7 +78,7 @@ pub fn cache_dir() -> PathBuf {
     home.join(".cache").join("secryst")
 }
 
-/// The index source: `SECRYST_INDEX`, then the default index-v16 URL.
+/// The index source: `SECRYST_INDEX`, then the default index-v17 URL.
 fn index_source(explicit: Option<&str>) -> String {
     explicit
         .map(str::to_string)
