@@ -7,8 +7,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
+  attestations: write
 
 jobs:
   publish:
@@ -37,3 +38,35 @@ jobs:
           cargo build --release
       - name: Publish to crates.io
         run: cargo publish --allow-dirty --token ${{ steps.auth.outputs.token }}
+      # Everything below runs AFTER a successful publish and must never
+      # gate it. Org supply-chain layer (SOTA-2027): every release ships a
+      # CycloneDX 1.6 JSON SBOM + sha256 sidecar (house sidecar pattern)
+      # and build provenance attestations (gh attestation-compatible).
+      - name: Emit CycloneDX SBOM (cargo-cyclonedx)
+        id: sbom
+        run: |
+          cargo install cargo-cyclonedx --locked
+          cargo cyclonedx -f json --spec-version 1.6 -a
+          version=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "interscript") | .version')
+          mv interscript.cdx.json "interscript-${version}.cdx.json"
+          sha256sum "interscript-${version}.cdx.json" \
+            > "interscript-${version}.cdx.json.sha256"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          ls -la "interscript-${version}.cdx.json"*
+      - name: Package the crate artifact for attestation
+        run: cargo package --no-verify --allow-dirty
+      - name: Attest build provenance (crate + SBOM)
+        continue-on-error: true
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            target/package/interscript-*.crate
+            interscript-${{ steps.sbom.outputs.version }}.cdx.json
+      - name: Attach SBOM + sidecar to the GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.sbom.outputs.version }}
+          files: |
+            interscript-${{ steps.sbom.outputs.version }}.cdx.json
+            interscript-${{ steps.sbom.outputs.version }}.cdx.json.sha256
